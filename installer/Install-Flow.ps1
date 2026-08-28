@@ -21,11 +21,8 @@ function Resolve-TailscaleExecutable {
 }
 
 function Get-PayloadDirectory {
-    $bundledPayload = Join-Path $installerRoot 'payload'
-    if (Test-Path -LiteralPath (Join-Path $bundledPayload 'Flow.Windows.exe')) {
-        return $bundledPayload
-    }
-
+    # Prefer the reproducible release archive. A locally ignored payload can
+    # be left over from an older build and must never silently win here.
     $archive = Join-Path $installerRoot 'release\Flow-Windows-Installer.zip'
     if (Test-Path -LiteralPath $archive) {
         $archiveRoot = Join-Path ([IO.Path]::GetTempPath()) ('FlowInstaller-' + [Guid]::NewGuid().ToString('N'))
@@ -43,6 +40,11 @@ function Get-PayloadDirectory {
             Remove-Item -LiteralPath $archiveRoot -Recurse -Force -ErrorAction SilentlyContinue
             throw
         }
+    }
+
+    $bundledPayload = Join-Path $installerRoot 'payload'
+    if (Test-Path -LiteralPath (Join-Path $bundledPayload 'Flow.Windows.exe')) {
+        return $bundledPayload
     }
 
     $project = Join-Path $installerRoot '..\Flow.Windows\Flow.Windows.csproj'
@@ -63,18 +65,23 @@ function Get-PayloadDirectory {
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $temporaryPayload 'Flow.Windows.exe'))) {
         throw 'No se pudo generar el ejecutable autocontenido de Flow.'
     }
+    Copy-Item -LiteralPath (Join-Path $installerRoot '..\Flow.Windows\FlowLogo.ico') -Destination $temporaryPayload -Force
     return $temporaryPayload
 }
 
 function Stop-InstalledFlow {
-    param([Parameter(Mandatory = $true)][string]$ExecutablePath)
+    # The old and current installers used different locations. Stop every
+    # process with Flow's exact executable name so an old binary cannot keep
+    # the tray icon or lock the destination during an upgrade.
+    @(Get-CimInstance Win32_Process -Filter "Name='Flow.Windows.exe'" -ErrorAction SilentlyContinue) |
+        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 
-    Get-CimInstance Win32_Process -Filter "Name='Flow.Windows.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { $_.ExecutablePath -eq $ExecutablePath } |
-        ForEach-Object {
-            Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
-        }
-    Start-Sleep -Milliseconds 400
+    for ($attempt = 0; $attempt -lt 20; $attempt++) {
+        $running = @(Get-CimInstance Win32_Process -Filter "Name='Flow.Windows.exe'" -ErrorAction SilentlyContinue)
+        if ($running.Count -eq 0) { return }
+        Start-Sleep -Milliseconds 250
+    }
+    throw 'No se pudo cerrar la instancia anterior de Flow antes de actualizarla.'
 }
 
 Write-Host '==========================================' -ForegroundColor Cyan
@@ -88,11 +95,15 @@ $executable = Join-Path $InstallDir 'Flow.Windows.exe'
 
 try {
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-    Stop-InstalledFlow -ExecutablePath $executable
+    Stop-InstalledFlow
     Copy-Item -Path (Join-Path $payload '*') -Destination $InstallDir -Recurse -Force
 
     if (-not (Test-Path -LiteralPath $executable)) {
         throw 'La instalación no contiene Flow.Windows.exe.'
+    }
+    $iconPath = Join-Path $InstallDir 'FlowLogo.ico'
+    if (-not (Test-Path -LiteralPath $iconPath)) {
+        throw 'La instalación no contiene el icono vectorial de Flow.'
     }
 
     $registryPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
@@ -112,8 +123,13 @@ try {
     $shortcut.TargetPath = $executable
     $shortcut.WorkingDirectory = $InstallDir
     $shortcut.Description = 'Flow - dictado por voz y reuniones'
-    $shortcut.IconLocation = "$executable,0"
+    $shortcut.IconLocation = "$iconPath,0"
     $shortcut.Save()
+    # Tell Explorer to invalidate the old cached icon for the shortcut.
+    $iconRefresh = Join-Path $env:SystemRoot 'System32\ie4uinit.exe'
+    if (Test-Path -LiteralPath $iconRefresh) {
+        Start-Process -FilePath $iconRefresh -ArgumentList '-show' -WindowStyle Hidden -Wait
+    }
 
     Write-Host "Flow instalado en: $InstallDir" -ForegroundColor Green
     if ($NoAutoStart) {

@@ -36,7 +36,10 @@ los argumentos del proceso. Si se deja vacía, se puede ejecutar después:
 ```
 
 La instalación crea el acceso directo del menú Inicio y el arranque residente
-en segundo plano. No sustituye ni borra la base local existente.
+en segundo plano. El acceso directo utiliza el `FlowLogo.ico` incluido en el
+paquete para que Windows no conserve el icono de una versión anterior. La
+actualización no sustituye ni borra la base local existente en
+`%LOCALAPPDATA%\Flow\flow.db`.
 
 ## Tailscale
 

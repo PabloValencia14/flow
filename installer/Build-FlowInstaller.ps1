@@ -37,6 +37,10 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $payload 'Fl
     throw 'La publicación de Flow.Windows ha fallado.'
 }
 
+# Keep a standalone ICO beside the executable so Start Menu shortcuts do not
+# depend on Explorer's cached icon for a previous executable at the same path.
+Copy-Item -LiteralPath (Join-Path $installerRoot '..\Flow.Windows\FlowLogo.ico') -Destination $payload -Force
+
 Copy-Item -LiteralPath (Join-Path $installerRoot 'Install-Flow.ps1') -Destination $outputRoot -Force
 Copy-Item -LiteralPath (Join-Path $installerRoot 'Set-FlowGroqKey.ps1') -Destination $outputRoot -Force
 Copy-Item -LiteralPath (Join-Path $installerRoot 'CredentialTools.ps1') -Destination $outputRoot -Force

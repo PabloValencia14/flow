@@ -108,11 +108,17 @@ neutro salvo que el contenido esté en una aplicación con otro perfil explícit
 
 El tema visual, el micrófono y los efectos de sonido son preferencias propias
 del equipo y se restauran antes de que el atajo global pueda iniciar una
-grabación. Las opciones de corrección y estilo se guardan junto con su evento
-de sincronización en la misma transacción; así no pueden quedar guardadas en
-la interfaz pero ausentes de la cola si Flow pierde la conexión. Los snippets
-se conservan en SQLite y sus valores predeterminados solo se inicializan una
-vez: borrar todos los snippets no los vuelve a crear al reiniciar.
+grabación. Cada cambio de configuración se confirma en una transacción SQLite
+durable y serializada, incluso si se cambian varias opciones seguidas. Las
+opciones de corrección y estilo se guardan junto con su evento de
+sincronización en la misma transacción; así no pueden quedar guardadas en la
+interfaz pero ausentes de la cola si Flow pierde la conexión. Los snippets se
+conservan en SQLite y sus valores predeterminados solo se inicializan una vez:
+borrar todos los snippets no los vuelve a crear al reiniciar.
+
+El instalador copia `FlowLogo.ico` junto al ejecutable y el acceso directo usa
+ese archivo directamente. Así la actualización no depende de la caché que
+Windows pueda tener del icono de una versión anterior.
 
 Para la primera prueba se puede definir `FLOW_GROQ_API_KEY` solo en la sesión
 del proceso. El modo previsto usa Windows Credential Manager con el destino

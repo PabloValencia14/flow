@@ -87,6 +87,8 @@ public sealed class LocalOutbox
         using var command = connection.CreateCommand();
         command.CommandText = """
             PRAGMA journal_mode=WAL;
+            PRAGMA synchronous=FULL;
+            PRAGMA busy_timeout=5000;
             CREATE TABLE IF NOT EXISTS sync_outbox (
                 event_id TEXT PRIMARY KEY,
                 entity TEXT NOT NULL,
@@ -766,13 +768,29 @@ public sealed class LocalOutbox
 
     public async Task SetSettingAsync(string key, string value)
     {
-        await using var connection = Open();
-        await connection.OpenAsync();
-        await using var command = connection.CreateCommand();
-        command.CommandText = "INSERT INTO app_settings(key, value) VALUES($key, $val) ON CONFLICT(key) DO UPDATE SET value=$val";
-        command.Parameters.AddWithValue("$key", key);
-        command.Parameters.AddWithValue("$val", value);
-        await command.ExecuteNonQueryAsync();
+        if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("La clave no puede estar vacía.", nameof(key));
+
+        // Every preference uses the same serialized transaction. This matters
+        // because WPF event handlers are async void and a theme/microphone
+        // change can otherwise overlap with another write or with sync.
+        await _settingsWriteLock.WaitAsync();
+        try
+        {
+            await using var connection = Open();
+            await connection.OpenAsync();
+            await using var transaction = connection.BeginTransaction();
+            await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = "INSERT INTO app_settings(key, value) VALUES($key, $val) ON CONFLICT(key) DO UPDATE SET value=$val";
+            command.Parameters.AddWithValue("$key", key);
+            command.Parameters.AddWithValue("$val", value ?? string.Empty);
+            await command.ExecuteNonQueryAsync();
+            await transaction.CommitAsync();
+        }
+        finally
+        {
+            _settingsWriteLock.Release();
+        }
     }
 
     public async Task<List<(string Key, string Value)>> GetSyncableSettingsAsync()
@@ -814,12 +832,25 @@ public sealed class LocalOutbox
 
     public async Task RemoveSettingAsync(string key)
     {
-        await using var connection = Open();
-        await connection.OpenAsync();
-        await using var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM app_settings WHERE key=$key";
-        command.Parameters.AddWithValue("$key", key);
-        await command.ExecuteNonQueryAsync();
+        if (string.IsNullOrWhiteSpace(key)) return;
+
+        await _settingsWriteLock.WaitAsync();
+        try
+        {
+            await using var connection = Open();
+            await connection.OpenAsync();
+            await using var transaction = connection.BeginTransaction();
+            await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = "DELETE FROM app_settings WHERE key=$key";
+            command.Parameters.AddWithValue("$key", key);
+            await command.ExecuteNonQueryAsync();
+            await transaction.CommitAsync();
+        }
+        finally
+        {
+            _settingsWriteLock.Release();
+        }
     }
 
     public async Task<DictationCorrectionOptions> GetCorrectionOptionsAsync()
