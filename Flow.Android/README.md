@@ -1,5 +1,18 @@
 # Flow.Android
 
+## Compilación reproducible
+
+El repositorio incluye el Wrapper de Gradle fijado a Gradle 9.5.1. Con JDK 17
+y el SDK de Android configurado, la APK de depuración se genera con:
+
+```powershell
+.\gradlew.bat test assembleDebug lintDebug --console=plain
+```
+
+El resultado queda en `app/build/outputs/apk/debug/app-debug.apk`. El `test`
+actual no tiene fuentes de pruebas unitarias todavía; `lintDebug` sí valida el
+código y el manifiesto antes de instalar.
+
 La APK incluye el motor y una interfaz Compose funcional. La lógica sigue
 separada de la presentación en `FlowEngine`: cualquier pantalla puede observar
 `FlowEngineListener` y llamar a `start()`, `finish()`, `cancel()` o

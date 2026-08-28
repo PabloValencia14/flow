@@ -18,3 +18,17 @@ Solo después se hará una copia de seguridad de la configuración necesaria,
 se desinstalará Wispr Flow con su desinstalador oficial y se comprobará que no
 queda ningún proceso ni acceso directo de arranque. Esa acción será el último
 paso, no parte de la instalación inicial.
+
+## Última validación técnica
+
+El 28 de agosto de 2026 se verificó que Windows compila en Release sin errores,
+que Flow.Windows permanece en segundo plano y que el acceso directo de Inicio
+apunta al ejecutable y al icono instalados. En Android, la APK 1.0.1 compila
+con `test`, `assembleDebug` y `lintDebug`, se instala conservando los datos y
+arranca sin excepciones fatales en la Xiaomi Pad 7 de pruebas. La ruta de red
+de Android a FlowHub responde por Tailscale en el puerto configurado.
+
+La prueba de inserción real queda pendiente de desbloquear la tableta y
+activar manualmente «Flow» en Accesibilidad; Android no permite conceder ese
+permiso como parte de una instalación silenciosa. El segundo dispositivo
+conectado informa API 24 y no es compatible con el `minSdk` actual (29).

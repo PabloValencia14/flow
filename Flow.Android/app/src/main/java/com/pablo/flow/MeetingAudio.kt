@@ -14,7 +14,18 @@ object MeetingAudio {
         output.parentFile?.mkdirs()
         var dataBytes = 0L
         BufferedOutputStream(FileOutputStream(output)).use { target ->
-            val header = inputs.first().inputStream().use { it.readNBytes(44) }
+            // InputStream.readNBytes was added in API 33. Flow supports API
+            // 29, so read the fixed WAV header with the classic API instead.
+            val header = inputs.first().inputStream().use { input ->
+                val bytes = ByteArray(44)
+                var offset = 0
+                while (offset < bytes.size) {
+                    val count = input.read(bytes, offset, bytes.size - offset)
+                    if (count <= 0) break
+                    offset += count
+                }
+                if (offset == bytes.size) bytes else bytes.copyOf(offset)
+            }
             require(header.size == 44 && String(header, 0, 4, Charsets.US_ASCII) == "RIFF") { "El audio grabado no tiene formato WAV válido." }
             target.write(header)
             inputs.forEach { file ->
