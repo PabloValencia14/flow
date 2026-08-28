@@ -63,25 +63,34 @@ cuando así la devuelve Windows Credential Manager y se sanea solo en memoria.
 El cliente recuerda la última ventana externa en primer plano y la restaura
 antes de pegar, por lo que los botones no dejan el texto dentro de Flow.
 
-Después de Whisper, Flow aplica una segunda pasada contextual con
-`openai/gpt-oss-20b`: conserva la intención, elimina autocorrecciones habladas
-como «martes, no, miércoles», corrige palabras claramente mal reconocidas y no
-usa puntos suspensivos para pausas o dudas. El texto fuente se entrega como
-datos delimitados y la respuesta se valida antes de pegarla: si GPT-OSS
-devuelve una explicación, saludo, respuesta conversacional, razonamiento o
-JSON, Flow la descarta y usa la limpieza local del texto de Whisper. Así una
-pausa no termina pegándose como `...` ni una respuesta del modelo aparece en
-el editor.
+Después de Whisper, Flow aplica una segunda pasada de reescritura contextual con
+`openai/gpt-oss-20b`. No se limita a corregir palabras: reconstruye la sintaxis
+oral, une ideas, corrige expresiones poco naturales y elimina arranques
+abandonados, manteniendo todos los hechos, nombres, cifras, negaciones,
+condiciones, matices y peticiones. También resuelve autocorrecciones habladas
+como «martes, no, miércoles» y no usa puntos suspensivos para pausas o dudas.
+El texto fuente se entrega como datos delimitados y la respuesta se valida antes
+de pegarla: si GPT-OSS devuelve una explicación, saludo, respuesta
+conversacional, razonamiento o JSON, Flow la descarta y usa la limpieza local
+del texto de Whisper. Así una pausa no termina pegándose como `...` ni una
+respuesta del modelo aparece en el editor.
 
-La corrección contextual recibe también el nombre del proceso de destino y el
+La reescritura contextual recibe también el nombre del proceso de destino y el
 diccionario personal local. Según la aplicación, conserva sintaxis técnica,
 usa un tono profesional para correo, conciso para mensajería de trabajo o
-natural para mensajes personales. En Ajustes se puede activar o desactivar
-por separado la eliminación de muletillas, la eliminación de repeticiones,
-la resolución de autocorrecciones y el formato de párrafos/listas. Los
-snippets definidos en Flow se expanden después de la corrección, con
+natural para mensajes personales. Los perfiles no son solo etiquetas: cada uno
+indica al modelo cómo reformular la frase sin cambiar su significado. En Ajustes
+se puede activar o desactivar por separado la eliminación de muletillas, la
+eliminación de repeticiones, la resolución de autocorrecciones y el formato de
+párrafos/listas. Los snippets definidos en Flow se expanden después de la corrección, con
 coincidencia de palabra completa, para no enviar su contenido privado al
 modelo.
+
+Por ejemplo, un dictado como «Bueno, yo lo que quería comentarte es que, a ver,
+el informe lo terminamos mañana, bueno, el jueves» puede quedar como «El
+informe lo terminamos el jueves». En un perfil formal o profesional, el mismo
+criterio se aplica además al tono y a la estructura; en el perfil cercano se
+mantiene la naturalidad sin conservar muletillas ni errores.
 
 La vista «Estilos» permite guardar un perfil independiente para mensajería de
 trabajo, correo, código/prompts y mensajes personales. Cada perfil ofrece

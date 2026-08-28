@@ -72,13 +72,13 @@ public static class DictationStyleCatalog
 
     public static string Instruction(string? style) => Normalize(style) switch
     {
-        Professional => "Usa un tono profesional, claro y directo, sin sonar rígido",
-        Formal => "Usa un tono formal y cuidado, con frases completas y cortesía solo cuando esté presente en el dictado",
-        Concise => "Prioriza frases breves y accionables; elimina palabras innecesarias sin perder información",
-        Technical => "Sé literal y técnico; conserva identificadores, comandos, rutas, cifras, URLs y sintaxis exacta",
-        Casual => "Conserva un tono cercano y natural, incluidas expresiones coloquiales que formen parte de la intención",
-        Neutral => "Usa un tono natural y claro, sin formalizar ni adornar el mensaje",
-        _ => "Usa el tono natural que corresponda al destino sin imponer una personalidad artificial"
+        Professional => "Reescribe con un tono profesional, claro y directo, sin sonar rígido",
+        Formal => "Reescribe con un tono formal y cuidado, con frases completas y cortesía solo cuando esté presente en el dictado",
+        Concise => "Reescribe con frases breves y accionables; elimina redundancias sin perder ningún dato, condición o petición",
+        Technical => "Reescribe con precisión técnica; conserva identificadores, comandos, rutas, cifras, URLs y sintaxis exacta",
+        Casual => "Reescribe con un tono cercano y natural, conservando las expresiones coloquiales que formen parte de la intención",
+        Neutral => "Reescribe con un tono natural y claro, sin formalizar ni adornar el mensaje",
+        _ => "Reescribe con el tono natural que corresponda al destino sin imponer una personalidad artificial"
     };
 
     public static string DefaultForCategory(string category) => category switch

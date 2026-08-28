@@ -15,6 +15,7 @@ El proyecto está pensado para quienes quieren controlar sus datos y, al mismo t
 - Captura el micrófono predeterminado o el dispositivo seleccionado por el usuario.
 - Transcribe en español con Groq Whisper.
 - Corrige errores fonéticos cuando el contexto lo permite.
+- Reescribe el lenguaje oral o informal como texto natural, con el estilo elegido.
 - Resuelve autocorrecciones habladas, reinicios de pensamiento, repeticiones y muletillas.
 - Evita que las pausas se conviertan en puntos suspensivos.
 - Adapta el formato al destino: mensajes, correo, código o texto técnico.

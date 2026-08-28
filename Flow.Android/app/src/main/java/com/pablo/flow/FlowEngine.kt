@@ -107,9 +107,7 @@ class FlowEngine(
                 val correctionOptions = localStore.correctionOptions()
                 val correctionInput = DictationTextProcessor.prepareForCorrection(raw, correctionOptions)
                 val dictionary = localStore.dictionaryEntries().map { it.word to it.replacement }
-                val style = localStore.syncableSetting("style_personal")
-                    ?.takeIf { it.isNotBlank() && it != "auto" }
-                    ?.let { "Usa un estilo ${it} y conserva la intención del hablante" }
+                val style = DictationTextProcessor.styleInstruction(localStore.syncableSetting("style_personal"))
                 val corrected = runCatching {
                     groq.correct(
                         correctionInput,

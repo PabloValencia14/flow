@@ -25,8 +25,21 @@ object DictationTextProcessor {
     private val assistantReplyPrefix = Regex(
         "(?i)^\\s*(?:aquí tienes(?: la corrección| el texto)?|te dejo(?: la corrección| el texto)?|he corregido|(?:texto|resultado) (?:corregido|editado|final)\\s*(?:es|:)|la (?:transcripción|corrección)(?: final| corregida)?\\s*(?:es|:)|este es el texto(?: final| corregido)?\\s*(?:es|:)|(?:por supuesto|claro)[,!:.]\\s*(?:aquí|te|la (?:transcripción|corrección)|el texto)|lo siento[,!:]|como (?:ia|modelo)|espero que)\\b"
     )
+    private val assistantReplyMarker = Regex(
+        "(?im)^\\s*(?:aquí tienes(?: la corrección| el texto)?|te dejo(?: la corrección| el texto)?|he corregido|(?:texto|resultado) (?:corregido|editado|final)\\s*(?:es|:)|la (?:transcripción|corrección)(?: final| corregida)?\\s*(?:es|:)|este es el texto(?: final| corregido)?\\s*(?:es|:)|nota\\s*:|explicación\\s*:|si quieres que|espero que)"
+    )
     private val reasoningOrStructuredReply = Regex("(?i)^\\s*(?:analysis|reasoning|thoughts?)\\s*:|^\\s*<(?:analysis|reasoning|final|answer)\\b|^\\s*[{[]")
     private val manyLines = Regex("\\n{3,}")
+
+    fun styleInstruction(style: String?): String = when (style?.trim()?.lowercase()) {
+        "professional" -> "Reescribe con un tono profesional, claro y directo, sin sonar rígido"
+        "formal" -> "Reescribe con un tono formal y cuidado, con frases completas y cortesía solo si está presente en el dictado"
+        "concise" -> "Reescribe con frases breves y accionables; elimina redundancias sin perder ningún dato, condición o petición"
+        "technical" -> "Reescribe con precisión técnica; conserva identificadores, comandos, rutas, cifras, URLs y sintaxis exacta"
+        "casual" -> "Reescribe con un tono cercano y natural, conservando las expresiones coloquiales que formen parte de la intención"
+        "neutral" -> "Reescribe con un tono natural y claro, sin formalizar ni adornar el mensaje"
+        else -> "Reescribe con un tono natural y claro, sin imponer una personalidad artificial"
+    }
 
     fun prepareForCorrection(text: String, options: DictationCorrectionOptions = DictationCorrectionOptions()): String {
         if (text.isBlank()) return ""
@@ -65,6 +78,7 @@ object DictationTextProcessor {
         val cleaned = cleanFinal(trimmed, options)
         if (cleaned.isBlank()) return null
         if (assistantReplyPrefix.containsMatchIn(cleaned) && !assistantReplyPrefix.containsMatchIn(original.trim())) return null
+        if (assistantReplyMarker.containsMatchIn(cleaned) && !assistantReplyMarker.containsMatchIn(original.trim())) return null
         return cleaned.takeIf { it.length <= maxOf(1_200, original.length * 4) }
     }
 

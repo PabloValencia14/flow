@@ -25,10 +25,14 @@ La clave de Groq y el token opcional de FlowHub se almacenan cifrados mediante
 Android Keystore. La interfaz debe ofrecer una forma de introducirlos mediante
 `FlowEngine.setGroqApiKey()` y `setFlowHubToken()`.
 
-El corrector Android aplica la misma política de edición contextual: resuelve
-rectificaciones y reinicios de pensamiento, elimina pausas y repeticiones de
-tartamudeo, corrige términos solo cuando el contexto es inequívoco y da
-formato a listas o párrafos cuando la intención lo indica. El limpiador local
+El editor Android aplica la misma política de reescritura contextual: no se
+limita a corregir palabras, sino que reconstruye la sintaxis oral, une ideas y
+corrige expresiones poco naturales manteniendo los hechos y la intención.
+También resuelve rectificaciones y reinicios de pensamiento, elimina pausas y
+repeticiones de tartamudeo, corrige términos solo cuando el contexto es
+inequívoco y da formato a listas o párrafos cuando la intención lo indica. El
+estilo personal sincronizado se convierte en instrucciones concretas para el
+modelo (cercano, profesional, formal, conciso o técnico). El limpiador local
 impide que una pausa termine como puntos suspensivos aunque el modelo no esté
 disponible. La versión Android actual se mantiene alineada con la política de
 Windows; el diccionario y los estilos configurables siguen siendo funciones

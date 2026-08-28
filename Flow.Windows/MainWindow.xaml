@@ -718,8 +718,8 @@
                                 <!-- Intelligent Dictation Cleanup -->
                                 <Border Style="{StaticResource WisprCard}" Margin="0,0,0,12">
                                     <StackPanel>
-                                        <TextBlock Text="CORRECCIÓN INTELIGENTE" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,4" />
-                                        <TextBlock Text="Controla cuánto limpia Flow el texto antes de pegarlo. Las opciones se guardan localmente." FontSize="12.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,0,0,12" TextWrapping="Wrap" />
+                                        <TextBlock Text="REESCRITURA INTELIGENTE" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,4" />
+                                        <TextBlock Text="Flow reconstruye el habla informal como texto natural, corrige expresiones y respeta el estilo elegido. Estas opciones controlan cuánto interviene antes de pegarlo." FontSize="12.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,0,0,12" TextWrapping="Wrap" />
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />

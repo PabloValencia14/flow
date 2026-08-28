@@ -26,6 +26,9 @@ public static partial class DictationTextProcessor
     private static readonly Regex AssistantReplyPrefix = new(
         @"^\s*(?:aquí tienes(?: la corrección| el texto)?|te dejo(?: la corrección| el texto)?|he corregido|(?:texto|resultado) (?:corregido|editado|final)\s*(?:es|:)|la (?:transcripción|corrección)(?: final| corregida)?\s*(?:es|:)|este es el texto(?: final| corregido)?\s*(?:es|:)|(?:por supuesto|claro)[,!:.]\s*(?:aquí|te|la (?:transcripción|corrección)|el texto)|lo siento[,!:]|como (?:ia|modelo)|espero que)\b",
         RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    private static readonly Regex AssistantReplyMarker = new(
+        @"(?im)^\s*(?:aquí tienes(?: la corrección| el texto)?|te dejo(?: la corrección| el texto)?|he corregido|(?:texto|resultado) (?:corregido|editado|final)\s*(?:es|:)|la (?:transcripción|corrección)(?: final| corregida)?\s*(?:es|:)|este es el texto(?: final| corregido)?\s*(?:es|:)|nota\s*:|explicación\s*:|si quieres que|espero que)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     private static readonly Regex ReasoningOrStructuredReply = new(
         @"^\s*(?:analysis|reasoning|thoughts?)\s*:|^\s*<(?:analysis|reasoning|final|answer)\b|^\s*[{[]",
         RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
@@ -93,6 +96,8 @@ public static partial class DictationTextProcessor
         // Do not reject a sentence that the user actually dictated with a
         // natural opening such as "Aquí tienes..." or "Claro...".
         if (AssistantReplyPrefix.IsMatch(cleaned) && !AssistantReplyPrefix.IsMatch(original.Trim()))
+            return null;
+        if (AssistantReplyMarker.IsMatch(cleaned) && !AssistantReplyMarker.IsMatch(original.Trim()))
             return null;
 
         // A correction should remain close to the source length. This catches
