@@ -77,12 +77,13 @@ respuesta del modelo aparece en el editor.
 
 La reescritura contextual recibe también el destino detectado y el diccionario
 personal local. Flow combina el proceso de la ventana activa con su título para
-reconocer aplicaciones dentro de Chrome o Edge: una pestaña de WhatsApp usa el
-perfil cercano, Gmail el formal y ChatGPT el neutro, sin convertirlo en un
-mensaje formal. Si el título no permite identificar una página, conserva el
-perfil genérico y no hace suposiciones. Solo guarda la etiqueta normalizada
-(`WhatsApp`, `Gmail`, `ChatGPT`, etc.); el título completo de la ventana no se
-envía ni se sincroniza. Los perfiles no son solo etiquetas: cada uno
+reconocer páginas en navegadores Chromium como Vivaldi, Chrome o Edge: una
+pestaña de WhatsApp usa el perfil cercano, Gmail el formal y ChatGPT el neutro,
+sin convertirlo en un mensaje formal. Si el título no permite identificar una
+página, Vivaldi queda reconocido como navegador pero se conserva el perfil
+genérico y no se hacen suposiciones. Solo guarda la etiqueta normalizada
+(`WhatsApp`, `Gmail`, `ChatGPT`, `Vivaldi`, etc.); el título completo de la ventana
+no se envía ni se sincroniza. Los perfiles no son solo etiquetas: cada uno
 indica al modelo cómo reformular la frase sin cambiar su significado. En Ajustes
 se puede activar o desactivar por separado la eliminación de muletillas, la
 eliminación de repeticiones, la resolución de autocorrecciones y el formato de

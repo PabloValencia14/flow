@@ -27,6 +27,11 @@ public static class TargetApplicationDetector
         if (ContainsAny(identity, "devenv", "visual studio")) return "Visual Studio";
         if (ContainsAny(identity, "code")) return "Visual Studio Code";
 
+        // Vivaldi is a supported browser even when its tab title does not
+        // identify a known destination. Page-specific matches above always
+        // win, so WhatsApp/Gmail/ChatGPT keep their contextual profiles.
+        if (ContainsAny(processName?.ToLowerInvariant() ?? string.Empty, "vivaldi")) return "Vivaldi";
+
         return processName?.Trim();
     }
 
