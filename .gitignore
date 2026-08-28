@@ -1,0 +1,31 @@
+# Compilación y paquetes regenerables
+**/bin/
+**/obj/
+**/build/
+**/.gradle/
+**/.kotlin/
+Flow.Android/local.properties
+FlowHub/publish/
+FlowHub/publish-*/
+installer/payload/
+
+# Datos locales, credenciales y configuración de cada equipo
+**/.env
+**/.env.*
+**/secrets.local.md
+**/flow.db
+**/flow.db-*
+**/data-local/
+**/knowledge-local/
+FlowHub/appsettings.json
+
+# El ZIP autocontenido sí se conserva para instalaciones desde un clon;
+# la carpeta expandida de build no se versiona.
+installer/release/*
+!installer/release/Flow-Windows-Installer.zip
+
+# Archivos temporales del desarrollo
+*.user
+*.suo
+*.tmp
+*.log

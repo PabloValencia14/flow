@@ -1,0 +1,11 @@
+global using Application = System.Windows.Application;
+global using MessageBox = System.Windows.MessageBox;
+global using Clipboard = System.Windows.Clipboard;
+global using IDataObject = System.Windows.IDataObject;
+global using Button = System.Windows.Controls.Button;
+global using ComboBox = System.Windows.Controls.ComboBox;
+global using Control = System.Windows.Controls.Control;
+global using Orientation = System.Windows.Controls.Orientation;
+global using HorizontalAlignment = System.Windows.HorizontalAlignment;
+global using Color = System.Windows.Media.Color;
+global using Timer = System.Threading.Timer;
