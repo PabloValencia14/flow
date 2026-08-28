@@ -46,6 +46,7 @@ public static class DictationStyleCatalog
     public const string EmailCategory = "email";
     public const string CodeCategory = "code";
     public const string PersonalCategory = "personal";
+    public const string ChatCategory = "chat";
     public const string GenericCategory = "generic";
 
     public static string Normalize(string? style) => style?.Trim().ToLowerInvariant() switch
@@ -96,6 +97,7 @@ public static class DictationStyleCatalog
         EmailCategory => "correo electrónico",
         CodeCategory => "código o prompt técnico",
         PersonalCategory => "mensajería personal",
+        ChatCategory => "chat o asistente",
         _ => "destino no identificado"
     };
 }
@@ -133,6 +135,8 @@ public sealed record DictationCorrectionContext(
             return DictationStyleCatalog.WorkCategory;
         if (app.Contains("whatsapp") || app.Contains("telegram"))
             return DictationStyleCatalog.PersonalCategory;
+        if (app.Contains("chatgpt") || app.Contains("openai"))
+            return DictationStyleCatalog.ChatCategory;
         return DictationStyleCatalog.GenericCategory;
     }
 }

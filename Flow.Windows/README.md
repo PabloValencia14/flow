@@ -75,10 +75,14 @@ conversacional, razonamiento o JSON, Flow la descarta y usa la limpieza local
 del texto de Whisper. Así una pausa no termina pegándose como `...` ni una
 respuesta del modelo aparece en el editor.
 
-La reescritura contextual recibe también el nombre del proceso de destino y el
-diccionario personal local. Según la aplicación, conserva sintaxis técnica,
-usa un tono profesional para correo, conciso para mensajería de trabajo o
-natural para mensajes personales. Los perfiles no son solo etiquetas: cada uno
+La reescritura contextual recibe también el destino detectado y el diccionario
+personal local. Flow combina el proceso de la ventana activa con su título para
+reconocer aplicaciones dentro de Chrome o Edge: una pestaña de WhatsApp usa el
+perfil cercano, Gmail el formal y ChatGPT el neutro, sin convertirlo en un
+mensaje formal. Si el título no permite identificar una página, conserva el
+perfil genérico y no hace suposiciones. Solo guarda la etiqueta normalizada
+(`WhatsApp`, `Gmail`, `ChatGPT`, etc.); el título completo de la ventana no se
+envía ni se sincroniza. Los perfiles no son solo etiquetas: cada uno
 indica al modelo cómo reformular la frase sin cambiar su significado. En Ajustes
 se puede activar o desactivar por separado la eliminación de muletillas, la
 eliminación de repeticiones, la resolución de autocorrecciones y el formato de
@@ -99,10 +103,8 @@ que tenga sentido para ese destino. La selección se guarda de forma
 transaccional en `app_settings` local y, al terminar un dictado, se combina con el proceso que estaba en
 primer plano antes de grabar. Si se elige «Automático», se usan los valores
 predeterminados: profesional para trabajo, formal para correo, técnico para
-código y cercano para mensajes personales. En Gmail o Slack abiertos dentro
-de un navegador, Windows solo expone el proceso del navegador; para esos
-casos se usa el perfil general salvo que la aplicación anfitriona sea
-detectable.
+código y cercano para mensajes personales. Para ChatGPT se aplica el perfil
+neutro salvo que el contenido esté en una aplicación con otro perfil explícito.
 
 El tema visual, el micrófono y los efectos de sonido son preferencias propias
 del equipo y se restauran antes de que el atajo global pueda iniciar una

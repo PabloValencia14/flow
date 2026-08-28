@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -1199,13 +1200,23 @@ public partial class MainWindow : Window
         }
 
         _lastExternalWindow = foreground;
+        var windowTitle = GetWindowTitle(foreground);
         try
         {
             GetWindowThreadProcessId(foreground, out var pid);
-            if (pid != 0)
-                _lastExternalAppName = Process.GetProcessById((int)pid).ProcessName;
+            var processName = pid == 0 ? null : Process.GetProcessById((int)pid).ProcessName;
+            _lastExternalAppName = TargetApplicationDetector.Detect(processName, windowTitle);
         }
-        catch { _lastExternalAppName = null; }
+        catch { _lastExternalAppName = TargetApplicationDetector.Detect(null, windowTitle); }
+    }
+
+    private static string GetWindowTitle(nint handle)
+    {
+        var length = GetWindowTextLength(handle);
+        if (length <= 0) return string.Empty;
+        var title = new StringBuilder(length + 1);
+        _ = GetWindowText(handle, title, title.Capacity);
+        return title.ToString();
     }
 
     [DllImport("user32.dll")]
@@ -1216,5 +1227,11 @@ public partial class MainWindow : Window
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(nint hWnd, out uint processId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern int GetWindowTextLength(nint hWnd);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern int GetWindowText(nint hWnd, StringBuilder text, int count);
     #endregion
 }

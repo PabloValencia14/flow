@@ -19,6 +19,7 @@ El proyecto está pensado para quienes quieren controlar sus datos y, al mismo t
 - Resuelve autocorrecciones habladas, reinicios de pensamiento, repeticiones y muletillas.
 - Evita que las pausas se conviertan en puntos suspensivos.
 - Adapta el formato al destino: mensajes, correo, código o texto técnico.
+- Detecta el destino por la ventana y la página activa: WhatsApp cercano, Gmail formal y ChatGPT neutro.
 - Expande snippets después de corregir el texto.
 
 En Windows, Flow puede iniciarse en segundo plano y activarse con `Ctrl+Win`. La burbuja de grabación muestra el estado y el nivel del micrófono sin robar el foco de la aplicación activa.
