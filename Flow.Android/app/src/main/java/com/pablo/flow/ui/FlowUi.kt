@@ -326,7 +326,7 @@ fun HistoryScreen(records: List<DictationRecord>, onCopy: (String) -> Unit, onRe
 }
 
 @Composable
-fun SettingsScreen(serverUrl: String, hasGroqKey: Boolean, hasToken: Boolean, darkMode: String, onSave: (String, String, String, String) -> Unit, onRemoveKey: () -> Unit, onTest: (String) -> Unit, onScheduleSync: () -> Unit, onRequestOverlay: () -> Unit, onRequestTile: () -> Unit, textInsertionEnabled: Boolean, onRequestTextInsertion: () -> Unit, status: String) {
+fun SettingsScreen(serverUrl: String, hasGroqKey: Boolean, hasToken: Boolean, darkMode: String, onSave: (String, String, String, String) -> Unit, onRemoveKey: () -> Unit, onTest: (String) -> Unit, onScheduleSync: () -> Unit, onRequestOverlay: () -> Unit, onRequestTile: () -> Unit, onRequestMeetingTile: () -> Unit, textInsertionEnabled: Boolean, onRequestTextInsertion: () -> Unit, status: String) {
     var url by remember(serverUrl) { mutableStateOf(serverUrl) }
     var groqKey by remember { mutableStateOf("") }
     var token by remember { mutableStateOf("") }
@@ -350,6 +350,7 @@ fun SettingsScreen(serverUrl: String, hasGroqKey: Boolean, hasToken: Boolean, da
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) { OutlinedButton(onClick = { onTest(url) }, modifier = Modifier.weight(1f)) { Text("Probar conexión") }; OutlinedButton(onClick = onScheduleSync, modifier = Modifier.weight(1f)) { Text("Activar sync") } }
                     OutlinedButton(onClick = onRequestOverlay, modifier = Modifier.fillMaxWidth()) { Text("Permitir burbuja flotante") }
                     OutlinedButton(onClick = onRequestTile, modifier = Modifier.fillMaxWidth()) { Text("Añadir botón a Ajustes rápidos") }
+                    OutlinedButton(onClick = onRequestMeetingTile, modifier = Modifier.fillMaxWidth()) { Text("Añadir tile de reuniones") }
                     OutlinedButton(onClick = onRequestTextInsertion, modifier = Modifier.fillMaxWidth()) { Text(if (textInsertionEnabled) "Configurar inserción automática ✓" else "Activar inserción automática") }
                     Text(
                         if (textInsertionEnabled) "Flow puede insertar el resultado en el campo de texto que tenga el foco."

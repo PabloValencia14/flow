@@ -21,6 +21,8 @@ class QuickStartActivity : Activity() {
         private const val TAG = "FlowQuickStart"
         private const val REQUEST_MICROPHONE = 701
         const val ACTION_START_DICTATION = "com.pablo.flow.action.QUICK_START_DICTATION"
+        const val ACTION_START_MEETING = "com.pablo.flow.action.QUICK_START_MEETING"
+        const val EXTRA_MEETING_TITLE = "quick_start_meeting_title"
     }
 
     private var dispatched = false
@@ -40,34 +42,49 @@ class QuickStartActivity : Activity() {
             return
         }
 
-        startDictationAndFinish()
+        startFlowAndFinish()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode != REQUEST_MICROPHONE) return
         if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-            startDictationAndFinish()
+            startFlowAndFinish()
         } else {
             Log.w(TAG, "El usuario no concedió permiso para el micrófono")
             finish()
         }
     }
 
-    private fun startDictationAndFinish() {
+    private fun startFlowAndFinish() {
         if (isFinishing) return
         dispatched = true
 
         runCatching {
-            ContextCompat.startForegroundService(
-                this,
-                Intent(this, FlowOverlayService::class.java).apply {
-                    action = FlowOverlayService.ACTION_START
-                }
-            )
-            Log.i(TAG, "Servicio de dictado enviado con Activity visible")
+            if (intent?.action == ACTION_START_MEETING) {
+                ContextCompat.startForegroundService(
+                    this,
+                    Intent(this, MeetingRecordService::class.java).apply {
+                        action = MeetingRecordService.ACTION_START
+                        putExtra(
+                            MeetingRecordService.EXTRA_TITLE,
+                            intent?.getStringExtra(EXTRA_MEETING_TITLE)
+                        )
+                    }
+                )
+                Log.i(TAG, "Servicio de reunión enviado con Activity visible")
+            } else {
+                ContextCompat.startForegroundService(
+                    this,
+                    Intent(this, FlowOverlayService::class.java).apply {
+                        action = FlowOverlayService.ACTION_START
+                    }
+                )
+                Log.i(TAG, "Servicio de dictado enviado con Activity visible")
+            }
         }.onFailure { error ->
-            Log.e(TAG, "No se pudo enviar el servicio de dictado", error)
+            val kind = if (intent?.action == ACTION_START_MEETING) "reunión" else "dictado"
+            Log.e(TAG, "No se pudo enviar el servicio de $kind", error)
         }
 
         // Dejamos terminar la transición de visibilidad antes de devolver el

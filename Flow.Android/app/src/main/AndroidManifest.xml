@@ -67,6 +67,16 @@
             </intent-filter>
         </service>
 
+        <service android:name=".FlowMeetingQuickTileService"
+            android:label="Flow · Reunión"
+            android:icon="@drawable/flow_logo"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- Background Sync Worker -->
         <provider
             android:name="androidx.startup.InitializationProvider"

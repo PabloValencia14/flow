@@ -200,6 +200,7 @@ class MainActivity : ComponentActivity() {
                                     requestOverlayPermission()
                                 },
                                 onRequestTile = ::requestQuickSettingsTile,
+                                onRequestMeetingTile = ::requestMeetingQuickSettingsTile,
                                 textInsertionEnabled = accessibilityEnabled,
                                 onRequestTextInsertion = {
                                     startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
@@ -249,6 +250,20 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestQuickSettingsTile() {
+        requestTile(
+            ComponentName(this, FlowQuickTileService::class.java),
+            "Flow · Grabar"
+        )
+    }
+
+    private fun requestMeetingQuickSettingsTile() {
+        requestTile(
+            ComponentName(this, FlowMeetingQuickTileService::class.java),
+            "Flow · Reunión"
+        )
+    }
+
+    private fun requestTile(component: ComponentName, label: String) {
         if (Build.VERSION.SDK_INT < 33) {
             Toast.makeText(this, "Abre Ajustes rápidos, pulsa editar y añade el tile de Flow.", Toast.LENGTH_LONG).show()
             return
@@ -259,8 +274,8 @@ class MainActivity : ComponentActivity() {
             return
         }
         manager.requestAddTileService(
-            ComponentName(this, FlowQuickTileService::class.java),
-            "Flow · Grabar",
+            component,
+            label,
             Icon.createWithResource(this, R.drawable.flow_logo),
             mainExecutor
         ) { result ->

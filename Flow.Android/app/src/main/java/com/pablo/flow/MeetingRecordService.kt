@@ -1,12 +1,14 @@
 package com.pablo.flow
 
 import android.app.Service
+import android.content.ComponentName
 import android.content.Intent
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.Build
 import android.content.pm.ServiceInfo
+import android.service.quicksettings.TileService
 import androidx.core.app.ServiceCompat
 import java.io.File
 import java.time.Instant
@@ -65,19 +67,26 @@ class MeetingRecordService : Service() {
         FlowMeetingState.isActive = true
         FlowMeetingState.title = meetingTitle
         FlowMeetingState.status = "Grabando reunión…"
-        ServiceCompat.startForeground(
-            this,
-            FlowNotificationManager.NOTIFICATION_MEETING,
-            FlowNotificationManager.buildMeetingNotification(this, meetingTitle, "0:00:00"),
-            if (Build.VERSION.SDK_INT >= 30) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0
-        )
-        val directory = File(filesDir, "meetings/${meetingId}")
-        recorder = MeetingSegmentRecorder(this, directory, onLevel = { level: Float -> FlowMeetingState.audioLevel = level })
+        notifyMeetingTileState()
         try {
+            ServiceCompat.startForeground(
+                this,
+                FlowNotificationManager.NOTIFICATION_MEETING,
+                FlowNotificationManager.buildMeetingNotification(this, meetingTitle, "0:00:00"),
+                if (Build.VERSION.SDK_INT >= 30) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0
+            )
+            val directory = File(filesDir, "meetings/${meetingId}")
+            recorder = MeetingSegmentRecorder(this, directory, onLevel = { level: Float -> FlowMeetingState.audioLevel = level })
             recorder?.start()
             handler.post(timer)
         } catch (error: Exception) {
+            runCatching { recorder?.stop() }
+            recorder = null
+            FlowMeetingState.isActive = false
+            FlowMeetingState.audioLevel = 0f
             FlowMeetingState.status = error.message ?: "No se pudo iniciar la reunión."
+            notifyMeetingTileState()
+            runCatching { ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE) }
             stopSelf()
         }
     }
@@ -97,6 +106,7 @@ class MeetingRecordService : Service() {
             } finally {
                 FlowMeetingState.isActive = false
                 FlowMeetingState.audioLevel = 0f
+                notifyMeetingTileState()
                 stopSelf()
             }
         }
@@ -185,7 +195,17 @@ class MeetingRecordService : Service() {
         meetingId?.let { File(filesDir, "meetings/$it").deleteRecursively() }
         FlowMeetingState.isActive = false
         FlowMeetingState.audioLevel = 0f
+        notifyMeetingTileState()
         stopSelf()
+    }
+
+    private fun notifyMeetingTileState() {
+        runCatching {
+            TileService.requestListeningState(
+                this,
+                ComponentName(this, FlowMeetingQuickTileService::class.java)
+            )
+        }
     }
 
     override fun onDestroy() {
@@ -193,6 +213,7 @@ class MeetingRecordService : Service() {
         if (recorder?.isRecording() == true) runCatching { recorder?.stop() }
         executor.shutdownNow()
         FlowMeetingState.isActive = false
+        notifyMeetingTileState()
         super.onDestroy()
     }
 

@@ -90,6 +90,10 @@ acepta la IP LAN en el aprovisionamiento. El contrato común está en
 La interfaz actual incluye Dictado, Reuniones, Historial y Ajustes, con tema
 claro/oscuro/sistema, controles accesibles de 48 dp y barras de nivel del
 micrófono. La activación global se puede hacer desde el Quick Settings Tile.
+El tile independiente «Flow · Reunión» inicia una grabación de reunión o
+clase con título automático y la siguiente pulsación la finaliza. Ambos tiles
+se pueden añadir desde Ajustes → Servicios o desde el editor de tiles de
+Android.
 Para insertar el resultado en la aplicación que estaba en primer plano se
 incluye `FlowTextAccessibilityService`, que debe activarse manualmente en
 Ajustes → Accesibilidad → Flow.
