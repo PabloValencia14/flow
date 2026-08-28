@@ -1,76 +1,120 @@
 # Flow
 
-Primera rebanada vertical de la arquitectura local-first descrita en el
-diseño: `FlowHub` ya proporciona almacenamiento SQLite en modo WAL, registro
-de dispositivos, eventos de sincronización idempotentes, lectura incremental,
-WebSocket y exportación de reuniones a Knowledge.
+## Dictado por voz, reuniones y sincronización entre dispositivos
 
-En el portátil ya existe `Wispr Flow 1.6.606` como instalación temporal de
-prueba. No se debe desinstalar hasta que Flow.Windows supere los criterios de
-aceptación documentados. La situación de la instalación de prueba está
-documentada en
-[`wispr-flow-integration.md`](wispr-flow-integration.md).
+Flow es una herramienta de productividad por voz para Windows y Android. Convierte el habla en texto listo para pegar, mejora la transcripción respetando el contexto y permite organizar reuniones y dictados desde una arquitectura local-first.
 
-La captura de audio propia, la edición contextual, la integración WASAPI y la
-APK todavía no están declaradas como terminadas. Wispr Flow se mantiene
-temporalmente para comparar latencia, precisión, formato y comportamiento de
-pegado; solo se retirará después de una sustitución verificada.
+El proyecto está pensado para quienes quieren controlar sus datos y, al mismo tiempo, aprovechar modelos de reconocimiento y corrección de voz. El audio y el historial se mantienen en el dispositivo; las peticiones a Groq solo se realizan cuando se inicia una transcripción o una corrección.
 
-## Estado seguro actual
+> Estado: proyecto en desarrollo activo. Las funciones principales de dictado, corrección contextual, reuniones, sincronización y acceso rápido están implementadas, aunque algunas integraciones todavía requieren validación en cada dispositivo.
 
-- No modifica Tailscale, Windows Firewall, Syncthing, MediaPortal, AceStream ni
-  ningún flujo de streaming.
-- Por defecto escucha en `127.0.0.1:8790`, nunca en la LAN.
-- La base de datos está fuera de `C:\Knowledge` y fuera de Syncthing.
-- La exportación de reuniones sí escribe únicamente bajo la raíz de Knowledge
-  configurada.
-- Las credenciales de Wispr/Groq no forman parte del hub ni de los archivos del
-  proyecto.
+## Funcionalidades
 
-## Instalación reproducible de Windows
+### Dictado inteligente
 
-`installer\Build-FlowInstaller.ps1` genera una publicación `win-x64`
-autocontenida y un ZIP que se puede llevar a otro ordenador Windows sin
-instalar .NET. Al ejecutar `install-flow.bat` desde la raíz del proyecto (o el
-que hay en `installer`) se instala Flow.Windows, se registra el inicio en
-segundo plano y se solicita la clave de Groq. La clave se guarda en el
-Administrador de credenciales de Windows; nunca se incluye en el repositorio.
+- Captura el micrófono predeterminado o el dispositivo seleccionado por el usuario.
+- Transcribe en español con Groq Whisper.
+- Corrige errores fonéticos cuando el contexto lo permite.
+- Resuelve autocorrecciones habladas, reinicios de pensamiento, repeticiones y muletillas.
+- Evita que las pausas se conviertan en puntos suspensivos.
+- Adapta el formato al destino: mensajes, correo, código o texto técnico.
+- Expande snippets después de corregir el texto.
 
-Tailscale no forma parte de la instalación predeterminada. No se instala ni se
-configura. `Install-Flow.ps1 -EnableTailscale` existe como opción explícita
-para comprobar un cliente Tailscale ya instalado, pero no inicia sesión ni
-modifica rutas. La sincronización FlowHub se habilita aparte desde Ajustes.
+En Windows, Flow puede iniciarse en segundo plano y activarse con `Ctrl+Win`. La burbuja de grabación muestra el estado y el nivel del micrófono sin robar el foco de la aplicación activa.
 
-## Ejecución local
+### Reuniones y clases
 
-Desde `flow/FlowHub`:
+- Importación de audio de hasta 25 MB por archivo.
+- Transcripción con segmentos y timestamps.
+- Corrección contextual de la transcripción completa.
+- Reproducción sincronizada con cada segmento.
+- Exportación a Markdown o texto plano (`.txt`).
+- Sincronización opcional del texto y del audio con FlowHub.
 
-```powershell
-dotnet restore
-$env:FLOW_HUB_DATA_ROOT = "$pwd\data-local"
-$env:FLOW_HUB_KNOWLEDGE_ROOT = "$pwd\knowledge-local"
-dotnet run
-```
+La versión actual conserva `Persona 1` como identificador provisional. Groq proporciona timestamps, pero no realiza diarización real de voces; por tanto, la asignación automática de `Persona 2`, `Persona 3`, etc. todavía no está incluida.
 
-Comprobación:
+### Windows y Android
+
+- **Windows:** aplicación residente, atajo global, burbuja de grabación, inserción directa en la aplicación activa, estilos, snippets y procesamiento local de preferencias.
+- **Android:** Quick Settings Tile, burbuja sobre otras aplicaciones, grabación desde el micrófono predeterminado, servicio de accesibilidad para insertar texto y vista de reuniones.
+
+Consulta la documentación específica de [Flow.Windows](Flow.Windows/README.md) y [Flow.Android](Flow.Android/README.md) para conocer permisos, atajos y comportamiento detallado.
+
+## Instalación rápida en Windows
+
+El repositorio incluye un instalador autocontenido para Windows x64. No hace falta instalar .NET en el ordenador de destino.
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8790/healthz
+git clone https://github.com/PabloValencia14/flow.git
+cd flow
+.\install-flow.bat
 ```
 
-Para simular autenticación de aplicación, define `FLOW_HUB_APP_TOKEN` antes de
-arrancar y añade la cabecera Bearer a las rutas `/v1/*`.
+El instalador:
 
-## Despliegue posterior en el homelab
+1. Instala Flow en `%LOCALAPPDATA%\Programs\Flow`.
+2. Crea el acceso directo del menú Inicio.
+3. Configura el arranque residente en segundo plano.
+4. Solicita la clave de Groq.
 
-El despliegue real crea `C:\FlowHub`, mantiene la base fuera de Syncthing,
-instala el proceso como servicio Windows y configura Tailscale Serve solo
-después de comprobar el proceso en loopback, el nombre MagicDNS y el ACL del
-tailnet. `appsettings.example.json` muestra las rutas; el token de aplicación
-se mantiene fuera del repositorio.
+La clave se guarda en el Administrador de credenciales de Windows con el destino `Flow/GroqApiKey`. No se almacena en SQLite, en archivos de texto, en los argumentos del proceso ni en el repositorio.
 
-Estado de la primera instalación en el homelab (26/08/2026): `FlowHub` está
-instalado y sano en `127.0.0.1:8790`, con autenticación de aplicación activa.
-Serve no está habilitado todavía en el tailnet; el CLI de Tailscale entregó un
-enlace de activación administrativa. Hasta completar esa acción, no existe un
-endpoint remoto Flow y no se debe usar la LAN como sustituto.
+También se puede descargar directamente el [instalador autocontenido](installer/release/Flow-Windows-Installer.zip).
+
+## Sincronización entre dispositivos
+
+Flow puede funcionar sin servidor: el dictado y las reuniones se guardan localmente y se reintentan cuando sea necesario. Para compartir datos entre Windows y Android se puede desplegar el servidor opcional [FlowHub](FlowHub/) y configurar su URL en cada cliente.
+
+La sincronización puede incluir dictados, reuniones, historial, favoritos, diccionario, snippets y preferencias de corrección y estilo. Las claves, el micrófono, el tema y otros ajustes propios del dispositivo permanecen locales.
+
+Tailscale no es un requisito ni se activa durante la instalación. Puede utilizarse de forma explícita como transporte privado para acceder a FlowHub, pero Flow no instala el cliente, inicia sesión, cambia rutas ni configura Serve por defecto.
+
+## Desarrollo
+
+### Windows
+
+Se necesita el SDK de .NET 9:
+
+```powershell
+dotnet restore .\Flow.Windows\Flow.Windows.csproj
+dotnet run --project .\Flow.Windows\Flow.Windows.csproj
+```
+
+Para regenerar el instalador autocontenido:
+
+```powershell
+.\installer\Build-FlowInstaller.ps1 -Clean
+```
+
+El resultado se genera en `installer/release`. El ZIP incluido en el repositorio permite instalar Flow en otro equipo sin disponer del SDK.
+
+### Android
+
+Abre `Flow.Android` en Android Studio con un SDK Android configurado. Antes de usar el acceso rápido, Android requiere conceder el permiso de micrófono y, para la burbuja, el permiso de mostrar sobre otras aplicaciones. La inserción automática en la aplicación activa requiere habilitar el servicio de accesibilidad de Flow.
+
+## Estructura del repositorio
+
+```text
+Flow.Windows/    Cliente WPF para Windows
+Flow.Android/    Aplicación Android y servicios de captura
+FlowHub/         Servidor opcional de sincronización
+installer/       Instalador autocontenido y paquete distribuible
+protocol.md      Contrato común de sincronización
+acceptance.md    Criterios de validación del proyecto
+```
+
+## Privacidad y límites conocidos
+
+- Se necesita una clave de Groq para transcribir y corregir audio.
+- La cuenta gratuita de Groq limita las subidas de audio a 25 MB por petición en esta versión.
+- La corrección contextual depende del modelo disponible en Groq; si falla, Flow conserva la transcripción literal y aplica la limpieza local.
+- FlowHub es opcional y no recibe audio de dictados breves; el audio de reuniones solo se sincroniza cuando el usuario configura esa función.
+- Las reuniones todavía no disponen de separación automática real de hablantes.
+
+## Documentación
+
+- [Guía de Windows](Flow.Windows/README.md)
+- [Guía de Android](Flow.Android/README.md)
+- [Contrato de sincronización](protocol.md)
+- [Criterios de aceptación](acceptance.md)
+- [Instalador reproducible](installer/README.md)
