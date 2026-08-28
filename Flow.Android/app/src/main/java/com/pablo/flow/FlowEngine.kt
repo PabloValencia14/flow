@@ -47,6 +47,7 @@ class FlowEngine(
     var state: FlowState = FlowState.IDLE
         private set
     private var recordingStartedAt = 0L
+    private var targetAppName: String? = null
 
     fun hasMicrophonePermission(): Boolean = ContextCompat.checkSelfPermission(
         appContext, Manifest.permission.RECORD_AUDIO
@@ -80,6 +81,7 @@ class FlowEngine(
     fun start() {
         check(state == FlowState.IDLE) { "Flow no está listo para iniciar otra captura." }
         check(hasMicrophonePermission()) { "Android aún no ha concedido permiso para el micrófono." }
+        targetAppName = FlowTextAccessibilityService.currentTargetAppName()
         recorder.start()
         recordingStartedAt = System.currentTimeMillis()
         state = FlowState.RECORDING
@@ -107,11 +109,14 @@ class FlowEngine(
                 val correctionOptions = localStore.correctionOptions()
                 val correctionInput = DictationTextProcessor.prepareForCorrection(raw, correctionOptions)
                 val dictionary = localStore.dictionaryEntries().map { it.word to it.replacement }
-                val style = DictationTextProcessor.styleInstruction(localStore.syncableSetting("style_personal"))
+                val style = DictationTextProcessor.styleInstruction(
+                    localStore.syncableSetting(ForegroundTargetDetector.styleKey(targetAppName))
+                )
                 val corrected = runCatching {
                     groq.correct(
                         correctionInput,
                         DictationCorrectionContext(
+                            targetAppName = targetAppName,
                             personalDictionary = dictionary,
                             options = correctionOptions,
                             styleInstruction = style

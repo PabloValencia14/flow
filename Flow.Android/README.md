@@ -31,8 +31,13 @@ corrige expresiones poco naturales manteniendo los hechos y la intención.
 También resuelve rectificaciones y reinicios de pensamiento, elimina pausas y
 repeticiones de tartamudeo, corrige términos solo cuando el contexto es
 inequívoco y da formato a listas o párrafos cuando la intención lo indica. El
-estilo personal sincronizado se convierte en instrucciones concretas para el
-modelo (cercano, profesional, formal, conciso o técnico). El limpiador local
+estilo sincronizado se convierte en instrucciones concretas para el modelo
+(cercano, profesional, formal, conciso o técnico). Cuando el servicio de
+accesibilidad está activo, Flow reconoce WhatsApp, Gmail y ChatGPT por la
+aplicación en primer plano y, en navegadores, por el nombre del servicio en el
+título de la ventana. WhatsApp usa el estilo personal, Gmail el de correo y
+ChatGPT el neutro. Solo se conserva la etiqueta de destino normalizada; no se
+guarda ni se envía el contenido de la ventana. El limpiador local
 impide que una pausa termine como puntos suspensivos aunque el modelo no esté
 disponible. La versión Android actual se mantiene alineada con la política de
 Windows; el diccionario y los estilos configurables siguen siendo funciones

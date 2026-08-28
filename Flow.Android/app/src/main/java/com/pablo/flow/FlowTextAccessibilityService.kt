@@ -29,9 +29,14 @@ class FlowTextAccessibilityService : AccessibilityService() {
         @Volatile
         private var activeService: FlowTextAccessibilityService? = null
 
+        @Volatile
+        private var activeTargetAppName: String? = null
+
         private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
         fun isEnabled(): Boolean = activeService != null
+
+        fun currentTargetAppName(): String? = activeTargetAppName
 
         fun insertIntoFocusedField(
             context: Context,
@@ -75,7 +80,16 @@ class FlowTextAccessibilityService : AccessibilityService() {
         Log.i(TAG, "Servicio de inserción conectado")
     }
 
-    override fun onAccessibilityEvent(event: android.view.accessibility.AccessibilityEvent?) = Unit
+    override fun onAccessibilityEvent(event: android.view.accessibility.AccessibilityEvent?) {
+        if (event == null || event.eventType != android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val packageName = event.packageName?.toString().orEmpty()
+        if (packageName.isBlank() || packageName == this.packageName || packageName == "com.android.systemui") return
+
+        // Window-state text is used only as a service-name hint for browser
+        // tabs. The raw title is not stored, logged, synced, or sent to Groq.
+        val titleHint = event.text.joinToString(" ")
+        activeTargetAppName = ForegroundTargetDetector.detect(packageName, titleHint)
+    }
 
     override fun onInterrupt() = Unit
 
