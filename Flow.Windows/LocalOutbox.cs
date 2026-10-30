@@ -148,6 +148,7 @@ public sealed class LocalOutbox
                 is_synced INTEGER NOT NULL DEFAULT 0
             );
             CREATE INDEX IF NOT EXISTS ix_meetings_started_at ON meetings(started_at DESC);
+            CREATE INDEX IF NOT EXISTS ix_dictations_created_at ON dictations_history(created_at DESC);
             """;
         command.ExecuteNonQuery();
 
@@ -528,7 +529,7 @@ public sealed class LocalOutbox
         }
         else if (category == "today")
         {
-            query += " AND date(created_at) = date('now')";
+            query += " AND date(created_at, 'localtime') = date('now', 'localtime')";
         }
 
         query += " ORDER BY created_at DESC LIMIT $limit";
@@ -601,23 +602,46 @@ public sealed class LocalOutbox
         command.CommandText = """
             SELECT
                 COALESCE(SUM(word_count), 0) AS total_words,
-                COALESCE(SUM(CASE WHEN date(created_at) = date('now') THEN word_count ELSE 0 END), 0) AS today_words,
+                COALESCE(SUM(CASE WHEN date(created_at, 'localtime') = date('now', 'localtime') THEN word_count ELSE 0 END), 0) AS today_words,
                 COALESCE(SUM(duration_seconds), 0) AS total_duration,
                 COUNT(*) AS total_count
             FROM dictations_history;
             """;
-        await using var reader = await command.ExecuteReaderAsync();
-        if (await reader.ReadAsync())
+        int totalWords, todayWords, totalCount;
+        double totalDuration;
+        await using (var reader = await command.ExecuteReaderAsync())
         {
-            var totalWords = reader.GetInt32(0);
-            var todayWords = reader.GetInt32(1);
-            var totalDuration = reader.GetDouble(2);
-            var totalCount = reader.GetInt32(3);
-            var avgWpm = totalDuration > 1 ? (int)Math.Round((totalWords / totalDuration) * 60) : 225;
-            var minutesSaved = Math.Round((totalWords / 40.0) - (totalDuration / 60.0), 1); // 40 WPM average typing speed vs dictation
-            return new FlowStatistics(Math.Max(totalWords, 269), Math.Max(todayWords, 269), totalDuration + 136.8, Math.Max(totalCount, 8), 1, Math.Max(avgWpm, 210), Math.Max(minutesSaved, 18.5));
+            if (!await reader.ReadAsync()) return new FlowStatistics(0, 0, 0, 0, 0, 0, 0);
+            totalWords = reader.GetInt32(0);
+            todayWords = reader.GetInt32(1);
+            totalDuration = reader.GetDouble(2);
+            totalCount = reader.GetInt32(3);
         }
-        return new FlowStatistics(269, 269, 136.8, 8, 1, 225, 18.5);
+
+        command.CommandText = """
+            SELECT DISTINCT date(created_at, 'localtime') AS day
+            FROM dictations_history
+            WHERE date(created_at, 'localtime') <= date('now', 'localtime')
+            ORDER BY day DESC;
+            """;
+        var streak = 0;
+        var expectedDay = DateTime.Today;
+        await using (var reader = await command.ExecuteReaderAsync())
+        {
+            while (await reader.ReadAsync())
+            {
+                var day = DateTime.ParseExact(reader.GetString(0), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+                // Yesterday keeps a streak alive until the current day ends.
+                if (streak == 0 && day == expectedDay.AddDays(-1)) expectedDay = day;
+                if (day != expectedDay) break;
+                streak++;
+                expectedDay = expectedDay.AddDays(-1);
+            }
+        }
+        var avgWpm = totalDuration > 0 ? (int)Math.Round(totalWords / totalDuration * 60) : 0;
+        // Estimate against the existing 40 words/min typing baseline.
+        var minutesSaved = Math.Max(0, Math.Round(totalWords / 40.0 - totalDuration / 60.0, 1));
+        return new FlowStatistics(totalWords, todayWords, totalDuration, totalCount, streak, avgWpm, minutesSaved);
     }
     #endregion
 

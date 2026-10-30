@@ -571,7 +571,7 @@
                                     <Border Grid.Column="0" Style="{StaticResource WisprCard}" Padding="14">
                                         <StackPanel>
                                             <TextBlock Text="PALABRAS HOY" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" />
-                                            <TextBlock x:Name="InsightsWordsToday" Text="269" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,4,0,0" />
+                                            <TextBlock x:Name="InsightsWordsToday" Text="—" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,4,0,0" />
                                         </StackPanel>
                                     </Border>
 
@@ -579,15 +579,15 @@
                                     <Border Grid.Column="2" Style="{StaticResource WisprCard}" Padding="14">
                                         <StackPanel>
                                             <TextBlock Text="VELOCIDAD MEDIA" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" />
-                                            <TextBlock x:Name="InsightsAvgWpm" Text="225 WPM" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushAccentPurple}" Margin="0,4,0,0" />
+                                            <TextBlock x:Name="InsightsAvgWpm" Text="—" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushAccentPurple}" Margin="0,4,0,0" />
                                         </StackPanel>
                                     </Border>
 
                                     <!-- KPI 3 -->
                                     <Border Grid.Column="4" Style="{StaticResource WisprCard}" Padding="14">
                                         <StackPanel>
-                                            <TextBlock Text="TIEMPO AHORRADO" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" />
-                                            <TextBlock x:Name="InsightsTimeSaved" Text="18.5 min" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushAccentSuccess}" Margin="0,4,0,0" />
+                                            <TextBlock Text="AHORRO ESTIMADO" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" />
+                                            <TextBlock x:Name="InsightsTimeSaved" Text="—" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushAccentSuccess}" Margin="0,4,0,0" />
                                         </StackPanel>
                                     </Border>
 
@@ -595,70 +595,12 @@
                                     <Border Grid.Column="6" Style="{StaticResource WisprCard}" Padding="14">
                                         <StackPanel>
                                             <TextBlock Text="RACHA DIARIA" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" />
-                                            <TextBlock x:Name="InsightsStreak" Text="1 día" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushAccentWarning}" Margin="0,4,0,0" />
+                                            <TextBlock x:Name="InsightsStreak" Text="—" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushAccentWarning}" Margin="0,4,0,0" />
                                         </StackPanel>
                                     </Border>
                                 </Grid>
 
-                                <!-- Activity Visualizer Card -->
-                                <Border Style="{StaticResource WisprCard}">
-                                    <StackPanel>
-                                        <TextBlock Text="ACTIVIDAD DE LA SEMANA" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,14" />
-                                        <Grid Height="120">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-
-                                            <!-- Mon -->
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                                <Border Width="24" Height="20" Background="{DynamicResource BrushBgCardHover}" CornerRadius="4" Margin="0,0,0,6" />
-                                                <TextBlock Text="L" FontSize="11" Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" />
-                                            </StackPanel>
-
-                                            <!-- Tue -->
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                                <Border Width="24" Height="45" Background="{DynamicResource BrushBgCardHover}" CornerRadius="4" Margin="0,0,0,6" />
-                                                <TextBlock Text="M" FontSize="11" Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" />
-                                            </StackPanel>
-
-                                            <!-- Wed (Today) -->
-                                            <StackPanel Grid.Column="2" VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                                <Border Width="24" Height="95" Background="{DynamicResource BrushWisprGradient}" CornerRadius="4" Margin="0,0,0,6" />
-                                                <TextBlock Text="X" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource BrushAccentPurple}" HorizontalAlignment="Center" />
-                                            </StackPanel>
-
-                                            <!-- Thu -->
-                                            <StackPanel Grid.Column="3" VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                                <Border Width="24" Height="10" Background="{DynamicResource BrushBgCardHover}" CornerRadius="4" Margin="0,0,0,6" />
-                                                <TextBlock Text="J" FontSize="11" Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" />
-                                            </StackPanel>
-
-                                            <!-- Fri -->
-                                            <StackPanel Grid.Column="4" VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                                <Border Width="24" Height="10" Background="{DynamicResource BrushBgCardHover}" CornerRadius="4" Margin="0,0,0,6" />
-                                                <TextBlock Text="V" FontSize="11" Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" />
-                                            </StackPanel>
-
-                                            <!-- Sat -->
-                                            <StackPanel Grid.Column="5" VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                                <Border Width="24" Height="10" Background="{DynamicResource BrushBgCardHover}" CornerRadius="4" Margin="0,0,0,6" />
-                                                <TextBlock Text="S" FontSize="11" Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" />
-                                            </StackPanel>
-
-                                            <!-- Sun -->
-                                            <StackPanel Grid.Column="6" VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                                <Border Width="24" Height="10" Background="{DynamicResource BrushBgCardHover}" CornerRadius="4" Margin="0,0,0,6" />
-                                                <TextBlock Text="D" FontSize="11" Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </StackPanel>
-                                </Border>
+                                <TextBlock Text="El ahorro es una estimación frente a escribir a 40 palabras por minuto. Las cifras se calculan a partir del historial guardado en este equipo." TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSecondary}" FontSize="13" />
                             </StackPanel>
                         </ScrollViewer>
                     </Grid>

@@ -1156,7 +1156,7 @@ public partial class MainWindow : Window
             if (InsightsWordsToday != null) InsightsWordsToday.Text = stats.WordsToday.ToString();
             if (InsightsAvgWpm != null) InsightsAvgWpm.Text = $"{stats.AverageWpm} WPM";
             if (InsightsTimeSaved != null) InsightsTimeSaved.Text = $"{stats.MinutesSaved:0.0} min";
-            if (InsightsStreak != null) InsightsStreak.Text = $"{stats.DayStreak} día";
+            if (InsightsStreak != null) InsightsStreak.Text = $"{stats.DayStreak} {(stats.DayStreak == 1 ? "día" : "días")}";
         }
         catch { }
     }

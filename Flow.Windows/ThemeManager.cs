@@ -53,7 +53,7 @@ public static class ThemeManager
         var borderHover = isLight ? Color.FromRgb(184, 184, 184) : Color.FromRgb(72, 72, 72);
         var textPrimary = isLight ? Color.FromRgb(17, 17, 17) : Color.FromRgb(245, 245, 245);
         var textSecondary = isLight ? Color.FromRgb(74, 74, 74) : Color.FromRgb(181, 181, 181);
-        var textMuted = isLight ? Color.FromRgb(118, 118, 118) : Color.FromRgb(122, 122, 122);
+        var textMuted = isLight ? Color.FromRgb(102, 102, 102) : Color.FromRgb(146, 146, 146);
         var accent = isLight ? Color.FromRgb(17, 17, 17) : Color.FromRgb(245, 245, 245);
         var accentSoft = isLight ? Color.FromRgb(64, 64, 64) : Color.FromRgb(214, 214, 214);
         var onAccent = isLight ? Color.FromRgb(255, 255, 255) : Color.FromRgb(11, 11, 11);
