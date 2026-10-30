@@ -11,7 +11,7 @@
     <Color x:Key="ColorBorderHover">#484848</Color>
     <Color x:Key="ColorTextPrimary">#F5F5F5</Color>
     <Color x:Key="ColorTextSecondary">#B5B5B5</Color>
-    <Color x:Key="ColorTextMuted">#7A7A7A</Color>
+    <Color x:Key="ColorTextMuted">#929292</Color>
     <Color x:Key="ColorAccentPurple">#F5F5F5</Color>
     <Color x:Key="ColorAccentPurpleDark">#D6D6D6</Color>
     <Color x:Key="ColorAccentIndigo">#F5F5F5</Color>
@@ -29,7 +29,7 @@
     <SolidColorBrush x:Key="BrushBorderHover" Color="#484848" />
     <SolidColorBrush x:Key="BrushTextPrimary" Color="#F5F5F5" />
     <SolidColorBrush x:Key="BrushTextSecondary" Color="#B5B5B5" />
-    <SolidColorBrush x:Key="BrushTextMuted" Color="#7A7A7A" />
+    <SolidColorBrush x:Key="BrushTextMuted" Color="#929292" />
     <SolidColorBrush x:Key="BrushAccentPurple" Color="#F5F5F5" />
     <SolidColorBrush x:Key="BrushAccentPurpleDark" Color="#D6D6D6" />
     <SolidColorBrush x:Key="BrushAccentRecording" Color="#F5F5F5" />
@@ -112,9 +112,6 @@
                             Background="{TemplateBinding Background}"
                             CornerRadius="9"
                             Padding="{TemplateBinding Padding}">
-                        <Border.Effect>
-                            <DropShadowEffect BlurRadius="14" ShadowDepth="2" Direction="270" Opacity="0.22" Color="#000000" />
-                        </Border.Effect>
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -194,7 +191,7 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Rectangle x:Name="ActiveIndicator" Grid.Column="0" Width="3" Height="14" RadiusX="1.5" RadiusY="1.5"
+                            <Rectangle x:Name="ActiveIndicator" Grid.Column="0" Width="1" Height="14" RadiusX="1.5" RadiusY="1.5"
                                        Fill="{DynamicResource BrushAccentPurple}" Margin="-6,0,6,0" Visibility="Collapsed" />
                             <ContentPresenter Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Center" />
                         </Grid>

@@ -44,12 +44,7 @@
                                   Data="{StaticResource IconFlowLogo}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <TextBlock Text="Flow" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                        <Border Background="{DynamicResource BrushBgCard}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="10" Padding="8,2" VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal">
-                                <Ellipse x:Name="HubStatusDot" Width="6" Height="6" Fill="{DynamicResource BrushAccentSuccess}" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                <TextBlock x:Name="HubStatusLabel" Text="FlowHub Conectado" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}" FontWeight="Medium" />
-                            </StackPanel>
-                        </Border>
+                        <TextBlock x:Name="HubStatusLabel" Text="Estado de Flow" MaxWidth="420" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" FontSize="12" Foreground="{DynamicResource BrushTextSecondary}" VerticalAlignment="Center" />
                     </StackPanel>
 
                     <!-- Center: Spacer -->
@@ -70,9 +65,6 @@
                                 </ControlTemplate>
                             </Button.Template>
                         </Button>
-
-                        <Button x:Name="ToggleBarBtn" Content="Barra Flotante" Style="{StaticResource WisprGhostButton}"
-                                Padding="10,4" Margin="0,0,12,0" FontSize="12" Click="ToggleBarBtn_Click" />
 
                         <!-- Minimize Button -->
                         <Button Width="32" Height="30" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="MinimizeButton_Click" ToolTip="Minimizar">
@@ -133,7 +125,7 @@
                                 <RadioButton x:Name="NavNotes" Style="{StaticResource WisprNavTab}" IsChecked="True" Checked="NavTab_Checked">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Width="14" Height="14" Stretch="Uniform" Fill="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" Data="{StaticResource IconNotes}" Margin="0,0,10,0" />
-                                        <TextBlock Text="Notas &amp; Historial" VerticalAlignment="Center" />
+                                        <TextBlock Text="Dictados" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </RadioButton>
 
@@ -147,7 +139,7 @@
                                 <RadioButton x:Name="NavSnippets" Style="{StaticResource WisprNavTab}" Checked="NavTab_Checked">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Width="14" Height="14" Stretch="Uniform" Fill="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" Data="{StaticResource IconSnippet}" Margin="0,0,10,0" />
-                                        <TextBlock Text="Snippets de voz" VerticalAlignment="Center" />
+                                        <TextBlock Text="Plantillas" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </RadioButton>
 
@@ -164,14 +156,14 @@
                                 <RadioButton x:Name="NavStyles" Style="{StaticResource WisprNavTab}" Checked="NavTab_Checked">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Width="14" Height="14" Stretch="Uniform" Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" StrokeThickness="1.8" Data="{StaticResource IconWand}" Margin="0,0,10,0" />
-                                        <TextBlock Text="Estilos &amp; Tonos" VerticalAlignment="Center" />
+                                        <TextBlock Text="Estilos" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </RadioButton>
 
                                 <RadioButton x:Name="NavInsights" Style="{StaticResource WisprNavTab}" Checked="NavTab_Checked">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Width="14" Height="14" Stretch="Uniform" Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" StrokeThickness="1.8" Data="{StaticResource IconInsights}" Margin="0,0,10,0" />
-                                        <TextBlock Text="Insights &amp; Racha" VerticalAlignment="Center" />
+                                        <TextBlock Text="Actividad" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </RadioButton>
 
@@ -181,28 +173,11 @@
                                 <RadioButton x:Name="NavSettings" Style="{StaticResource WisprNavTab}" Checked="NavTab_Checked">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Width="14" Height="14" Stretch="Uniform" Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" StrokeThickness="1.8" Data="{StaticResource IconSettings}" Margin="0,0,10,0" />
-                                        <TextBlock Text="Configuración" VerticalAlignment="Center" />
+                                        <TextBlock Text="Ajustes" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </RadioButton>
                             </StackPanel>
                         </ScrollViewer>
-
-                        <!-- Bottom User Profile Card -->
-                        <Border Grid.Row="1" Background="{DynamicResource BrushBgCard}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="10" Padding="10">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Border Width="34" Height="34" CornerRadius="17" Background="{DynamicResource BrushWisprGradient}" Margin="0,0,10,0">
-                                    <TextBlock Text="PV" Foreground="{DynamicResource BrushOnAccent}" FontWeight="Bold" FontSize="12.5" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Border>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="Pablo Valencia" Foreground="{DynamicResource BrushTextPrimary}" FontWeight="SemiBold" FontSize="12.5" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="pablova04@gmail.com" Foreground="{DynamicResource BrushTextMuted}" FontSize="11" TextTrimming="CharacterEllipsis" />
-                                </StackPanel>
-                            </Grid>
-                        </Border>
                     </Grid>
                 </Border>
 
@@ -210,63 +185,45 @@
                 <Grid Grid.Column="1" Background="{DynamicResource BrushBgMain}">
 
                     <!-- VIEW 1: NOTES & HISTORY -->
-                    <Grid x:Name="ViewNotes" Margin="30,22,30,22" Visibility="Visible">
+                    <Grid x:Name="ViewNotes" Margin="30,24,30,24" Visibility="Visible">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-
-                        <!-- Top Title & Search -->
-                        <Grid Grid.Row="0" Margin="0,0,0,14">
+                        <Grid Grid.Row="0" Margin="0,0,0,20">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Notas &amp; Historial" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" />
-                                <TextBlock Text="Todas las transcripciones y notas de voz capturadas en tus aplicaciones." FontSize="13" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,3,0,0" />
+                            <StackPanel>
+                                <TextBlock Text="Dictados" FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" />
+                                <TextBlock x:Name="CurrentMicrophoneLabel" Text="{Binding SelectedItem.Name, ElementName=MicrophoneComboBox}" FontSize="12" Foreground="{DynamicResource BrushTextSecondary}" TextTrimming="CharacterEllipsis" Margin="0,6,12,0" />
                             </StackPanel>
-                            <Button Grid.Column="1" Content="Vaciar historial" Style="{StaticResource WisprGhostButton}" Foreground="{DynamicResource BrushTextSecondary}" VerticalAlignment="Center" Click="ClearHistory_Click" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                                <TextBlock Text="Ctrl + Win" FontSize="12" Foreground="{DynamicResource BrushTextSecondary}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                <Button x:Name="StartDictationPanelBtn" Content="Dictar" Style="{StaticResource WisprPrimaryButton}" Click="ToggleBarBtn_Click" AutomationProperties.Name="Iniciar o terminar dictado" />
+                            </StackPanel>
                         </Grid>
-
-                        <!-- Filter Pills & Search Box -->
                         <Grid Grid.Row="1" Margin="0,0,0,16">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-
-                            <!-- Filter Pills -->
-                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
                                 <RadioButton x:Name="FilterAll" Content="Todos" Style="{StaticResource WisprFilterPill}" IsChecked="True" Checked="Filter_Checked" />
                                 <RadioButton x:Name="FilterToday" Content="Hoy" Style="{StaticResource WisprFilterPill}" Checked="Filter_Checked" />
                                 <RadioButton x:Name="FilterFavs" Content="Favoritos" Style="{StaticResource WisprFilterPill}" Checked="Filter_Checked" />
                             </StackPanel>
-
-                            <!-- Search Input -->
-                            <Grid Grid.Column="1" Margin="14,0,0,0">
-                                <TextBox x:Name="NotesSearchBox" Style="{StaticResource WisprTextBox}" TextChanged="NotesSearchBox_TextChanged" />
-                                <TextBlock Text="Buscar en notas y dictados…" Foreground="{DynamicResource BrushTextMuted}" FontSize="12.5" IsHitTestVisible="False" Margin="12,8,0,0">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Text, ElementName=NotesSearchBox}" Value="">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </Grid>
-                        </Grid>
-
-                        <!-- Notes List ScrollViewer -->
-                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                            <StackPanel x:Name="NotesContainer">
-                                <!-- Cards populated dynamically -->
+                            <StackPanel Grid.Column="1" Margin="14,0,14,0">
+                                <Label Target="{Binding ElementName=NotesSearchBox}" Content="Buscar dictados" Foreground="{DynamicResource BrushTextSecondary}" FontSize="12" Padding="0,0,0,6" />
+                                <TextBox x:Name="NotesSearchBox" Style="{StaticResource WisprTextBox}" TextChanged="NotesSearchBox_TextChanged" AutomationProperties.Name="Buscar dictados" />
                             </StackPanel>
+                            <Button Grid.Column="2" Content="Vaciar historial" Style="{StaticResource WisprGhostButton}" VerticalAlignment="Bottom" Click="ClearHistory_Click" />
+                        </Grid>
+                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="NotesContainer" />
                         </ScrollViewer>
                     </Grid>
 
@@ -325,8 +282,8 @@
 
                         <!-- Header -->
                         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-                            <TextBlock Text="Snippets de Voz" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" />
-                            <TextBlock Text="Crea atajos de voz que se expandan instantáneamente en plantillas o textos largos." FontSize="13" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,3,0,0" />
+                            <TextBlock Text="Plantillas" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" />
+                            <TextBlock Text="Asocia una frase a un texto para insertarlo al dictar." FontSize="13" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,3,0,0" />
                         </StackPanel>
 
                         <!-- Add Snippet Card Form -->
@@ -344,7 +301,7 @@
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Grid.Row="0" Grid.Column="0">
-                                    <TextBlock Text="FRASE DISPARADORA (TRIGGER)" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,6" />
+                                    <TextBlock Text="Frase" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,6" />
                                     <TextBox x:Name="SnippetTriggerInput" Style="{StaticResource WisprTextBox}" />
                                 </StackPanel>
 
@@ -354,11 +311,11 @@
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Margin="0,10,0,0">
-                                    <TextBlock Text="TEXTO EXPANDIDO (PLANTILLA)" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,6" />
+                                    <TextBlock Text="Texto" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,6" />
                                     <TextBox x:Name="SnippetExpansionInput" Height="60" AcceptsReturn="True" TextWrapping="Wrap" Style="{StaticResource WisprTextBox}" />
                                 </StackPanel>
 
-                                <Button Grid.Row="2" Grid.ColumnSpan="3" Content="Guardar Snippet" Style="{StaticResource WisprPrimaryButton}" HorizontalAlignment="Right" Margin="0,12,0,0" Click="AddSnippetBtn_Click" />
+                                <Button Grid.Row="2" Grid.ColumnSpan="3" Content="Guardar plantilla" Style="{StaticResource WisprPrimaryButton}" HorizontalAlignment="Right" Margin="0,12,0,0" Click="AddSnippetBtn_Click" />
                             </Grid>
                         </Border>
 
@@ -380,8 +337,8 @@
 
                         <!-- Header -->
                         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-                            <TextBlock Text="Diccionario Personal" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" />
-                            <TextBlock Text="Enseña a Wispr Flow tus nombres propios, acrónimos o términos de tu sector." FontSize="13" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,3,0,0" />
+                            <TextBlock Text="Diccionario" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" />
+                            <TextBlock Text="Añade nombres y términos para la corrección del dictado." FontSize="13" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,3,0,0" />
                         </StackPanel>
 
                         <!-- Add Word Form -->
@@ -433,8 +390,7 @@
 
                         <!-- Header -->
                         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-                            <TextBlock Text="Estilos &amp; Reglas por Aplicación" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" />
-                            <TextBlock Text="Elige cómo debe quedar el texto. Flow detecta el destino y aplica el perfil antes de pegarlo." FontSize="13" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,3,0,0" TextWrapping="Wrap" />
+                            <TextBlock Text="Estilos por aplicación" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" />
                         </StackPanel>
 
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -549,8 +505,7 @@
 
                         <!-- Header -->
                         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-                            <TextBlock Text="Insights de Dictado" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" />
-                            <TextBlock Text="Rendimiento de voz, estadísticas de uso y tiempo ahorrado frente al teclado." FontSize="13" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,3,0,0" />
+                            <TextBlock Text="Actividad" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" />
                         </StackPanel>
 
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -568,97 +523,39 @@
                                     </Grid.ColumnDefinitions>
 
                                     <!-- KPI 1 -->
-                                    <Border Grid.Column="0" Style="{StaticResource WisprCard}" Padding="14">
+                                    <Border Grid.Column="0" Padding="0,8,0,16">
                                         <StackPanel>
                                             <TextBlock Text="PALABRAS HOY" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" />
-                                            <TextBlock x:Name="InsightsWordsToday" Text="269" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,4,0,0" />
+                                            <TextBlock x:Name="InsightsWordsToday" Text="—" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,4,0,0" />
                                         </StackPanel>
                                     </Border>
 
                                     <!-- KPI 2 -->
-                                    <Border Grid.Column="2" Style="{StaticResource WisprCard}" Padding="14">
+                                    <Border Grid.Column="2" Padding="0,8,0,16">
                                         <StackPanel>
                                             <TextBlock Text="VELOCIDAD MEDIA" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" />
-                                            <TextBlock x:Name="InsightsAvgWpm" Text="225 WPM" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushAccentPurple}" Margin="0,4,0,0" />
+                                            <TextBlock x:Name="InsightsAvgWpm" Text="—" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushAccentPurple}" Margin="0,4,0,0" />
                                         </StackPanel>
                                     </Border>
 
                                     <!-- KPI 3 -->
-                                    <Border Grid.Column="4" Style="{StaticResource WisprCard}" Padding="14">
+                                    <Border Grid.Column="4" Padding="0,8,0,16">
                                         <StackPanel>
-                                            <TextBlock Text="TIEMPO AHORRADO" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" />
-                                            <TextBlock x:Name="InsightsTimeSaved" Text="18.5 min" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushAccentSuccess}" Margin="0,4,0,0" />
+                                            <TextBlock Text="AHORRO ESTIMADO" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" />
+                                            <TextBlock x:Name="InsightsTimeSaved" Text="—" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushAccentSuccess}" Margin="0,4,0,0" />
                                         </StackPanel>
                                     </Border>
 
                                     <!-- KPI 4 -->
-                                    <Border Grid.Column="6" Style="{StaticResource WisprCard}" Padding="14">
+                                    <Border Grid.Column="6" Padding="0,8,0,16">
                                         <StackPanel>
                                             <TextBlock Text="RACHA DIARIA" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" />
-                                            <TextBlock x:Name="InsightsStreak" Text="1 día" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushAccentWarning}" Margin="0,4,0,0" />
+                                            <TextBlock x:Name="InsightsStreak" Text="—" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushAccentWarning}" Margin="0,4,0,0" />
                                         </StackPanel>
                                     </Border>
                                 </Grid>
 
-                                <!-- Activity Visualizer Card -->
-                                <Border Style="{StaticResource WisprCard}">
-                                    <StackPanel>
-                                        <TextBlock Text="ACTIVIDAD DE LA SEMANA" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,14" />
-                                        <Grid Height="120">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-
-                                            <!-- Mon -->
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                                <Border Width="24" Height="20" Background="{DynamicResource BrushBgCardHover}" CornerRadius="4" Margin="0,0,0,6" />
-                                                <TextBlock Text="L" FontSize="11" Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" />
-                                            </StackPanel>
-
-                                            <!-- Tue -->
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                                <Border Width="24" Height="45" Background="{DynamicResource BrushBgCardHover}" CornerRadius="4" Margin="0,0,0,6" />
-                                                <TextBlock Text="M" FontSize="11" Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" />
-                                            </StackPanel>
-
-                                            <!-- Wed (Today) -->
-                                            <StackPanel Grid.Column="2" VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                                <Border Width="24" Height="95" Background="{DynamicResource BrushWisprGradient}" CornerRadius="4" Margin="0,0,0,6" />
-                                                <TextBlock Text="X" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource BrushAccentPurple}" HorizontalAlignment="Center" />
-                                            </StackPanel>
-
-                                            <!-- Thu -->
-                                            <StackPanel Grid.Column="3" VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                                <Border Width="24" Height="10" Background="{DynamicResource BrushBgCardHover}" CornerRadius="4" Margin="0,0,0,6" />
-                                                <TextBlock Text="J" FontSize="11" Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" />
-                                            </StackPanel>
-
-                                            <!-- Fri -->
-                                            <StackPanel Grid.Column="4" VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                                <Border Width="24" Height="10" Background="{DynamicResource BrushBgCardHover}" CornerRadius="4" Margin="0,0,0,6" />
-                                                <TextBlock Text="V" FontSize="11" Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" />
-                                            </StackPanel>
-
-                                            <!-- Sat -->
-                                            <StackPanel Grid.Column="5" VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                                <Border Width="24" Height="10" Background="{DynamicResource BrushBgCardHover}" CornerRadius="4" Margin="0,0,0,6" />
-                                                <TextBlock Text="S" FontSize="11" Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" />
-                                            </StackPanel>
-
-                                            <!-- Sun -->
-                                            <StackPanel Grid.Column="6" VerticalAlignment="Bottom" HorizontalAlignment="Center">
-                                                <Border Width="24" Height="10" Background="{DynamicResource BrushBgCardHover}" CornerRadius="4" Margin="0,0,0,6" />
-                                                <TextBlock Text="D" FontSize="11" Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </StackPanel>
-                                </Border>
+                                <TextBlock Text="El ahorro es una estimación frente a escribir a 40 palabras por minuto. Las cifras se calculan a partir del historial guardado en este equipo." TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSecondary}" FontSize="13" />
                             </StackPanel>
                         </ScrollViewer>
                     </Grid>
@@ -672,8 +569,7 @@
 
                         <!-- Header -->
                         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-                            <TextBlock Text="Configuración" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" />
-                            <TextBlock Text="Micrófonos, efectos de sonido de Wispr Flow, tema visual y conexión FlowHub." FontSize="13" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,3,0,0" />
+                            <TextBlock Text="Ajustes" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" />
                         </StackPanel>
 
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -708,8 +604,8 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="Efectos de Sonido de Wispr Flow" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" />
-                                            <TextBlock Text="Reproducir sonidos oficiales al iniciar dictado, terminar y pegar texto." FontSize="12.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,3,0,0" />
+                                            <TextBlock Text="Sonidos" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" />
+                                            <TextBlock Text="Avisos al iniciar, terminar e insertar el dictado." FontSize="12.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,3,0,0" />
                                         </StackPanel>
                                         <CheckBox x:Name="ToggleSounds" Grid.Column="1" IsChecked="True" VerticalAlignment="Center" Checked="ToggleSounds_Changed" Unchecked="ToggleSounds_Changed" />
                                     </Grid>
@@ -718,8 +614,8 @@
                                 <!-- Intelligent Dictation Cleanup -->
                                 <Border Style="{StaticResource WisprCard}" Margin="0,0,0,12">
                                     <StackPanel>
-                                        <TextBlock Text="REESCRITURA INTELIGENTE" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,4" />
-                                        <TextBlock Text="Flow reconstruye el habla informal como texto natural, corrige expresiones y respeta el estilo elegido. Estas opciones controlan cuánto interviene antes de pegarlo." FontSize="12.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,0,0,12" TextWrapping="Wrap" />
+                                        <TextBlock Text="Corrección del dictado" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,4" />
+                                        <TextBlock Text="Opciones de corrección antes de insertar el texto." FontSize="12.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,0,0,12" TextWrapping="Wrap" />
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
@@ -747,7 +643,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0">
                                             <TextBlock Text="Iniciar Automáticamente con Windows" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" />
-                                            <TextBlock Text="Ejecuta Flow en segundo plano al arrancar el equipo para tener siempre listo Ctrl + Win." FontSize="12.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,3,0,0" />
+                                            <TextBlock Text="Abre Flow en segundo plano al iniciar sesión." FontSize="12.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,3,0,0" />
                                         </StackPanel>
                                         <CheckBox x:Name="ToggleAutoStart" Grid.Column="1" IsChecked="True" VerticalAlignment="Center" Checked="ToggleAutoStart_Changed" Unchecked="ToggleAutoStart_Changed" />
                                     </Grid>
@@ -801,7 +697,7 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="Base de Datos Local SQLite (WAL)" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" />
+                                            <TextBlock Text="Datos locales" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" />
                                             <TextBlock x:Name="DbPathLabel" Text="C:\Users\pablo\AppData\Local\Flow\flow.db" FontSize="11.5" Foreground="{DynamicResource BrushTextMuted}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
                                         <Button Grid.Column="1" Content="Abrir carpeta" Style="{StaticResource WisprGhostButton}" Click="OpenDbFolder_Click" />

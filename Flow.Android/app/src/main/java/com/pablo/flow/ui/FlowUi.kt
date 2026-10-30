@@ -119,7 +119,7 @@ fun DictationScreen(
         modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars),
         contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        item { Text("Flow", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold); Spacer(Modifier.height(4.dp)); Text("Dictado local-first", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item { Text("Dictado", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold) }
         item { StatusCard(state, status) }
         item {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
@@ -215,7 +215,7 @@ fun MeetingsScreen(meetings: List<MeetingRecord>, meetingActive: Boolean, onStar
     LazyColumn(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars), contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text("Reuniones", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold); Text("Graba clases y conversaciones largas", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Column(Modifier.weight(1f)) { Text("Reuniones", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold) }
                 IconButton(onClick = onRefresh, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.Refresh, "Actualizar reuniones") }
             }
         }
