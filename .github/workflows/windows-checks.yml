@@ -1,0 +1,22 @@
+name: Windows checks
+
+on:
+  push:
+    branches: [main]
+    paths: ['Flow.Windows/**', 'tests/Flow.Windows.Checks/**', '.github/workflows/windows-checks.yml']
+  pull_request:
+    paths: ['Flow.Windows/**', 'tests/Flow.Windows.Checks/**', '.github/workflows/windows-checks.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - name: Build and check isolated history
+        run: dotnet run --project tests/Flow.Windows.Checks -c Release
