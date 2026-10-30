@@ -255,3 +255,37 @@ demás pantallas. El rediseño completo abarca además Reuniones y Ajustes.
 - [Virtualización y reciclaje de controles WPF](https://learn.microsoft.com/en-us/dotnet/desktop/wpf/advanced/optimizing-performance-controls).
 - [Limitaciones asíncronas de Microsoft.Data.Sqlite](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/async).
 - [Fechas, UTC y modificador localtime de SQLite](https://www.sqlite.org/lang_datefunc.html).
+
+## Limpieza de interfaz aplicada tras la revisión
+
+El usuario solicitó eliminar todos los lemas y reducir los patrones visuales
+genéricos. Esta pasada conserva la interfaz nativa y elimina presentación
+promocional, sin introducir otra identidad visual.
+
+- Inicio se denomina Dictados: cabecera compacta con micrófono, atajo y acción
+  Dictar; búsqueda con etiqueta persistente y filtros.
+- Eliminados «Tu voz, lista para escribir», «Habla. Flow se ocupa del resto»,
+  «Dictado inteligente», «Dictado local-first» y las introducciones redundantes
+  de las pantallas. Las instrucciones sobre permisos, captura y recuperación
+  se conservan.
+- Eliminados el perfil estático, el aviso redundante de actividad, el botón
+  duplicado de dictado, las sombras de botones y las tarjetas individuales de
+  dictados. Las filas se separan con una línea. Las métricas pierden sus cajas.
+- Estado superior en texto, sin cápsula decorativa. Se conserva el mensaje
+  completo y se ofrece en tooltip cuando no cabe, en lugar de recortarlo a
+  24 caracteres en el código.
+- Terminología: Dictados, Plantillas, Estilos, Actividad y Ajustes.
+- Limpieza equivalente de lemas en Android. En la interfaz local más reciente
+  también se eliminan los bloques promocionales y sus estilos sin uso.
+
+Los cambios se aplicaron a la rama de revisión y a los cuatro archivos de
+presentación correspondientes de la copia local que contiene trabajo previo.
+Se conservó una copia de esos archivos antes de modificarlos. El trabajo
+anterior permanece sin confirmar y no se incorpora a esta PR.
+
+Validación: compilación Release de Windows en ambas copias; compilación Kotlin
+de Android en ambas copias; diez comprobaciones de historial; render aislado de
+Inicio en claro y oscuro a 1180×768 y 920×640. Se revisaron las cuatro imágenes
+del estado vacío. El render usa estados de muestra y no ejecuta captura de
+audio, inserción de texto ni sincronización. No se actualizan los binarios
+instalados en esta pasada.

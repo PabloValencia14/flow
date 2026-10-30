@@ -647,10 +647,11 @@ public partial class MainWindow : Window
         {
             var emptyText = new TextBlock
             {
-                Text = string.IsNullOrEmpty(search) ? "No hay notas o dictados guardados todavía. ¡Empieza a hablar con Ctrl + Win!" : "No se encontraron notas para esta búsqueda.",
+                Text = string.IsNullOrEmpty(search) ? "No hay dictados guardados. Usa Dictar o Ctrl + Win para crear uno." : "No se encontraron notas para esta búsqueda.",
                 FontSize = 13,
                 Margin = new Thickness(0, 40, 0, 0),
-                HorizontalAlignment = HorizontalAlignment.Center
+                HorizontalAlignment = HorizontalAlignment.Left,
+                TextWrapping = TextWrapping.Wrap
             };
             emptyText.SetResourceReference(TextBlock.ForegroundProperty, "BrushTextMuted");
             NotesContainer.Children.Add(emptyText);
@@ -669,8 +670,11 @@ public partial class MainWindow : Window
         var border = new Border
         {
             Style = (Style)FindResource("WisprCard"),
-            Margin = new Thickness(0, 0, 0, 10),
-            Padding = new Thickness(14)
+            Background = System.Windows.Media.Brushes.Transparent,
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            CornerRadius = new CornerRadius(0),
+            Margin = new Thickness(0),
+            Padding = new Thickness(0, 14, 0, 14)
         };
 
         var grid = new Grid();
@@ -935,7 +939,8 @@ public partial class MainWindow : Window
                 Text = "No hay términos en el diccionario personal todavía.",
                 FontSize = 13,
                 Margin = new Thickness(0, 24, 0, 0),
-                HorizontalAlignment = HorizontalAlignment.Center
+                HorizontalAlignment = HorizontalAlignment.Left,
+                TextWrapping = TextWrapping.Wrap
             };
             emptyText.SetResourceReference(TextBlock.ForegroundProperty, "BrushTextMuted");
             DictionaryContainer.Children.Add(emptyText);
@@ -1165,13 +1170,13 @@ public partial class MainWindow : Window
     {
         if (Dispatcher.CheckAccess())
         {
-            HubStatusLabel.Text = message.Length > 24 ? message[..24] + "…" : message;
+            HubStatusLabel.Text = message;
         }
         else
         {
             Dispatcher.Invoke(() =>
             {
-                HubStatusLabel.Text = message.Length > 24 ? message[..24] + "…" : message;
+                HubStatusLabel.Text = message;
             });
         }
     }
