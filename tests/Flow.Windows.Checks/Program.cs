@@ -154,6 +154,12 @@ try
         "El filtro ASR conserva 'Gracias.' si se pronunció con claridad");
     Check(DictationTextProcessor.CleanAsrSegmentText("Hola equipo. Gracias por ver el video.") == "Hola equipo.",
         "El filtro ASR limpia alucinaciones pegadas al final de una frase válida");
+
+    Check(!ThemeManager.ResolveIsLight(AppTheme.System, windowsInDarkMode: true) &&
+          ThemeManager.ResolveIsLight(AppTheme.System, windowsInDarkMode: false) &&
+          !ThemeManager.ResolveIsLight(AppTheme.Dark, windowsInDarkMode: false) &&
+          ThemeManager.ResolveIsLight(AppTheme.Light, windowsInDarkMode: true),
+        "El tema del sistema sigue el modo claro u oscuro de Windows mientras los fijos se mantienen");
 }
 finally
 {

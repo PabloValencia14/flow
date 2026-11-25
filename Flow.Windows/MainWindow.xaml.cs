@@ -22,7 +22,9 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _foregroundTimer;
     private readonly RecordingIndicatorWindow _flowBar;
     private readonly System.Windows.Forms.NotifyIcon _trayIcon;
+    private readonly Action<AppTheme, bool> _themeChangedHandler;
     private readonly bool _startInBackground;
+    private HwndSource? _hwndSource;
     private nint _lastExternalWindow;
     private string? _lastExternalAppName;
     private string _currentNoteFilter = "all";
@@ -51,12 +53,7 @@ public partial class MainWindow : Window
             a.Equals("--background", StringComparison.OrdinalIgnoreCase) ||
             a.Equals("-b", StringComparison.OrdinalIgnoreCase));
         ShowInTaskbar = !_startInBackground;
-        if (_startInBackground)
-        {
-            // Hide before the asynchronous Loaded work starts so startup never
-            // flashes the full panel when launched by Windows.
-            SourceInitialized += (_, _) => HideToTray();
-        }
+        SourceInitialized += OnMainWindowSourceInitialized;
         _trayIcon = CreateTrayIcon();
 
         // Connect audio levels to floating Dynamic Island recorder graph
@@ -98,10 +95,12 @@ public partial class MainWindow : Window
             _shortcut.NotifyExternalStop();
         };
 
-        ThemeManager.ThemeChanged += (mode, isLight) =>
+        _themeChangedHandler = (mode, isLight) =>
         {
-            Dispatcher.Invoke(async () =>
+            if (_isClosingFromApp) return;
+            Dispatcher.BeginInvoke(async () =>
             {
+                if (_isClosingFromApp) return;
                 UpdateThemeRadios(mode);
                 UpdateThemeIcon(isLight);
                 await LoadNotesAsync();
@@ -110,10 +109,12 @@ public partial class MainWindow : Window
                 await LoadMeetingsAsync();
             });
         };
+        ThemeManager.ThemeChanged += _themeChangedHandler;
 
         _syncTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
         _syncTimer.Tick += async (_, _) =>
         {
+            ThemeManager.SyncSystemThemeIfNeeded();
             var sync = await _client.SyncPendingAsync();
             if (sync.Pulled > 0)
             {
@@ -196,6 +197,9 @@ public partial class MainWindow : Window
         Closed += async (_, _) =>
         {
             _isClosingFromApp = true;
+            ThemeManager.ThemeChanged -= _themeChangedHandler;
+            ThemeManager.StopSystemThemeTracking();
+            _hwndSource?.RemoveHook(MainWindowProc);
             _trayIcon.Visible = false;
             _trayIcon.Dispose();
             _syncTimer.Stop();
@@ -212,6 +216,36 @@ public partial class MainWindow : Window
     }
 
     #region Window Chrome & Navigation
+    private void OnMainWindowSourceInitialized(object? sender, EventArgs e)
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        _hwndSource = HwndSource.FromHwnd(handle);
+        _hwndSource?.AddHook(MainWindowProc);
+        if (_startInBackground) HideToTray();
+    }
+
+    private nint MainWindowProc(nint hwnd, int message, nint wParam, nint lParam, ref bool handled)
+    {
+        const int wmSettingChange = 0x001A;
+        const int wmThemeChanged = 0x031A;
+        if (message == wmThemeChanged)
+        {
+            ThemeManager.SyncSystemThemeIfNeeded();
+        }
+        else if (message == wmSettingChange)
+        {
+            var setting = lParam == nint.Zero ? null : Marshal.PtrToStringUni(lParam);
+            if (setting is null ||
+                string.Equals(setting, "ImmersiveColorSet", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(setting, "WindowsThemeElement", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(setting, "UserPreference", StringComparison.OrdinalIgnoreCase))
+            {
+                ThemeManager.SyncSystemThemeIfNeeded();
+            }
+        }
+        return nint.Zero;
+    }
+
     private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton == MouseButton.Left) DragMove();
@@ -331,6 +365,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        ThemeManager.SyncSystemThemeIfNeeded();
         ShowInTaskbar = true;
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
         Show();
@@ -588,6 +623,7 @@ public partial class MainWindow : Window
         if (_client.IsRecording) return;
         try
         {
+            ThemeManager.SyncSystemThemeIfNeeded();
             _client.SetPasteTarget(_lastExternalWindow, _lastExternalAppName);
             await _client.StartDictationAsync();
             if (!fromShortcut) _shortcut.NotifyExternalStart();

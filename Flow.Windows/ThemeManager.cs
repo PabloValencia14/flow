@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Media;
+using Microsoft.Win32;
 
 namespace Flow.Windows;
 
@@ -12,24 +13,87 @@ public enum AppTheme
 
 public static class ThemeManager
 {
+    private static readonly object TrackingLock = new();
+    private static bool _systemTrackingRegistered;
+
     public static AppTheme CurrentTheme { get; private set; } = AppTheme.Dark;
     public static bool IsLightActive { get; private set; }
 
     public static event Action<AppTheme, bool>? ThemeChanged;
 
+    public static bool ResolveIsLight(AppTheme mode, bool windowsInDarkMode) => mode switch
+    {
+        AppTheme.Light => true,
+        AppTheme.System => !windowsInDarkMode,
+        _ => false
+    };
+
     public static void ApplyTheme(AppTheme mode)
     {
         CurrentTheme = mode;
-        var isLight = mode == AppTheme.Light;
-
-        if (mode == AppTheme.System)
-        {
-            isLight = !IsWindowsInDarkMode();
-        }
+        var isLight = ResolveIsLight(mode, IsWindowsInDarkMode());
 
         IsLightActive = isLight;
+        if (Application.Current is not null)
+            EnsureSystemThemeTracking();
         UpdateBrushes(isLight);
         ThemeChanged?.Invoke(CurrentTheme, isLight);
+    }
+
+    public static bool SyncSystemThemeIfNeeded()
+    {
+        if (CurrentTheme != AppTheme.System) return false;
+        var shouldBeLight = !IsWindowsInDarkMode();
+        if (shouldBeLight == IsLightActive) return false;
+
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess())
+        {
+            dispatcher.BeginInvoke(() => SyncSystemThemeIfNeeded());
+            return true;
+        }
+
+        ApplyTheme(AppTheme.System);
+        return true;
+    }
+
+    public static void EnsureSystemThemeTracking()
+    {
+        lock (TrackingLock)
+        {
+            if (_systemTrackingRegistered) return;
+            SystemEvents.UserPreferenceChanged += OnSystemUserPreferenceChanged;
+            SystemEvents.PowerModeChanged += OnSystemPowerModeChanged;
+            _systemTrackingRegistered = true;
+        }
+    }
+
+    public static void StopSystemThemeTracking()
+    {
+        lock (TrackingLock)
+        {
+            if (!_systemTrackingRegistered) return;
+            SystemEvents.UserPreferenceChanged -= OnSystemUserPreferenceChanged;
+            SystemEvents.PowerModeChanged -= OnSystemPowerModeChanged;
+            _systemTrackingRegistered = false;
+        }
+    }
+
+    private static void OnSystemUserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
+    {
+        if (e.Category is UserPreferenceCategory.General or
+            UserPreferenceCategory.Color or
+            UserPreferenceCategory.VisualStyle or
+            UserPreferenceCategory.Desktop)
+        {
+            SyncSystemThemeIfNeeded();
+        }
+    }
+
+    private static void OnSystemPowerModeChanged(object? sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == PowerModes.Resume)
+            SyncSystemThemeIfNeeded();
     }
 
     public static void ToggleTheme()
