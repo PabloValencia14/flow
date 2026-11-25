@@ -10,9 +10,14 @@ namespace Flow.Windows;
 public sealed class FlowClient : IAsyncDisposable
 {
     private const string ServerUrlSetting = "flowhub_server_url";
-    private const long PreviewWindowMilliseconds = 4_000;
-    private const long PreviewStepMilliseconds = 2_000;
-    private const long PreviewOverlapMilliseconds = 2_000;
+    private const long WordPreviewWindowMilliseconds = 1_200;
+    private const long WordPreviewStepMilliseconds = 900;
+    private const long WordPreviewOverlapMilliseconds = 1_100;
+    private const long WordPreviewPollMilliseconds = 350;
+    private const long BlockPreviewWindowMilliseconds = 3_200;
+    private const long BlockPreviewStepMilliseconds = 2_200;
+    private const long BlockPreviewOverlapMilliseconds = 1_800;
+    private const long BlockPreviewPollMilliseconds = 1_200;
     private const long PreviewCorrectionIntervalMilliseconds = 8_000;
     private readonly Action<string> _status;
     private readonly AudioCapture _audio;
@@ -26,6 +31,7 @@ public sealed class FlowClient : IAsyncDisposable
     private readonly SemaphoreSlim _syncLock = new(1, 1);
     private readonly Stopwatch _recordingWatch = new();
     private LocalWhisperSession? _localWhisperSession;
+    private Task<LocalWhisperSession>? _localSessionTask;
     private CancellationTokenSource? _localPreviewCancellation;
     private Task? _localPreviewTask;
     private Task? _captureCleanupTask;
@@ -33,6 +39,7 @@ public sealed class FlowClient : IAsyncDisposable
     private DictationCorrectionContext? _activeCorrectionContext;
     private string _activeTranscriptionProvider = "groq";
     private string _activeTranscriptionModel = GroqTranscriber.Model;
+    private string _activePreviewMode = "word";
     private string _activeCorrectionProvider = "groq";
     private string _activeCorrectionModel = GroqContextCorrector.Model;
     private long _localProcessedEndBytes;
@@ -61,6 +68,7 @@ public sealed class FlowClient : IAsyncDisposable
     public TimeSpan CurrentRecordingDuration => _recordingWatch.Elapsed;
     public LocalOutbox Outbox => _outbox;
     public bool UsesLocalTranscription => _activeTranscriptionProvider == "whisper";
+    public string ActiveTranscriptPreviewMode => _activePreviewMode;
 
     public event Action<string>? TranscriptPreviewChanged;
 
@@ -95,6 +103,12 @@ public sealed class FlowClient : IAsyncDisposable
         _activeTranscriptionModel = _activeTranscriptionProvider == "whisper"
             ? await _outbox.GetSettingAsync(FlowSettingKeys.TranscriptionModel, LocalWhisperTranscriber.DefaultModel) ?? LocalWhisperTranscriber.DefaultModel
             : GroqTranscriber.Model;
+        _activePreviewMode = string.Equals(
+            await _outbox.GetSettingAsync(FlowSettingKeys.TranscriptPreviewMode, "word"),
+            "block",
+            StringComparison.OrdinalIgnoreCase)
+            ? "block"
+            : "word";
         _activeCorrectionProvider = await _outbox.GetSettingAsync(FlowSettingKeys.CorrectionProvider, "groq") == "ollama"
             ? "ollama"
             : "groq";
@@ -103,8 +117,12 @@ public sealed class FlowClient : IAsyncDisposable
             : GroqContextCorrector.Model;
         _activeCorrectionContext = await BuildCorrectionContextAsync();
 
-        if (_activeTranscriptionProvider == "whisper")
-            _localWhisperSession = await Task.Run(() => LocalWhisperTranscriber.OpenSession(_activeTranscriptionModel));
+        if (_activeTranscriptionProvider == "whisper" && !LocalWhisperTranscriber.IsModelInstalled(_activeTranscriptionModel))
+            throw new InvalidOperationException($"Falta el modelo Whisper «{_activeTranscriptionModel}». Descárgalo en Ajustes > Modelos locales.");
+
+        _localSessionTask = _activeTranscriptionProvider == "whisper"
+            ? Task.Run(() => LocalWhisperTranscriber.OpenSession(_activeTranscriptionModel))
+            : null;
 
         _recordingWatch.Restart();
         try
@@ -113,7 +131,7 @@ public sealed class FlowClient : IAsyncDisposable
             IsRecording = true;
             SoundManager.PlayStart();
             _status(_activeTranscriptionProvider == "whisper"
-                ? $"Escuchando con «{_audio.InputDeviceName}» · Whisper local."
+                ? $"Escuchando con «{_audio.InputDeviceName}» · Whisper local ({(_activePreviewMode == "block" ? "en bloque" : "palabra por palabra")})."
                 : $"Escuchando con «{_audio.InputDeviceName}»…");
             if (_activeTranscriptionProvider == "whisper")
             {
@@ -128,8 +146,7 @@ public sealed class FlowClient : IAsyncDisposable
         }
         catch
         {
-            _localWhisperSession?.Dispose();
-            _localWhisperSession = null;
+            await CleanupLocalSessionAsync();
             _recordingWatch.Reset();
             throw;
         }
@@ -272,13 +289,23 @@ public sealed class FlowClient : IAsyncDisposable
         return new DictationCorrectionContext(_lastTargetAppName, dictionary, options, styles);
     }
 
+    private async Task<LocalWhisperSession?> EnsureLocalSessionAsync(CancellationToken cancellationToken)
+    {
+        if (_localWhisperSession is not null) return _localWhisperSession;
+        if (_localSessionTask is null) return null;
+        _localWhisperSession = await _localSessionTask.WaitAsync(cancellationToken);
+        return _localWhisperSession;
+    }
+
     private async Task RunLocalPreviewAsync(CancellationToken cancellationToken)
     {
         try
         {
+            await EnsureLocalSessionAsync(cancellationToken);
+            var pollMs = _activePreviewMode == "block" ? BlockPreviewPollMilliseconds : WordPreviewPollMilliseconds;
             while (true)
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(1_500), cancellationToken);
+                await Task.Delay(TimeSpan.FromMilliseconds(pollMs), cancellationToken);
                 await ProcessLocalChunksAsync(_audio.GetSnapshot(0, 0), flushRemaining: false, cancellationToken);
             }
         }
@@ -287,10 +314,15 @@ public sealed class FlowClient : IAsyncDisposable
 
     private async Task ProcessLocalChunksAsync(AudioCaptureSnapshot snapshot, bool flushRemaining, CancellationToken cancellationToken)
     {
-        if (_localWhisperSession is null || snapshot.TotalLengthBytes == 0) return;
+        var session = await EnsureLocalSessionAsync(cancellationToken);
+        if (session is null || snapshot.TotalLengthBytes == 0) return;
         await _localPreviewLock.WaitAsync(cancellationToken);
         try
         {
+            var isWordMode = _activePreviewMode != "block";
+            var windowMs = isWordMode ? WordPreviewWindowMilliseconds : BlockPreviewWindowMilliseconds;
+            var stepMs = isWordMode ? WordPreviewStepMilliseconds : BlockPreviewStepMilliseconds;
+            var overlapMs = isWordMode ? WordPreviewOverlapMilliseconds : BlockPreviewOverlapMilliseconds;
             var bytesPerSecond = Math.Max(snapshot.Format.AverageBytesPerSecond,
                 snapshot.Format.SampleRate * Math.Max(1, snapshot.Format.BlockAlign));
             var blockAlign = Math.Max(1, snapshot.Format.BlockAlign);
@@ -300,9 +332,9 @@ public sealed class FlowClient : IAsyncDisposable
                 return Math.Max(blockAlign, bytes - bytes % blockAlign);
             }
 
-            var firstWindowBytes = ToAlignedBytes(PreviewWindowMilliseconds);
-            var stepBytes = ToAlignedBytes(PreviewStepMilliseconds);
-            var overlapBytes = ToAlignedBytes(PreviewOverlapMilliseconds);
+            var firstWindowBytes = ToAlignedBytes(windowMs);
+            var stepBytes = ToAlignedBytes(stepMs);
+            var overlapBytes = ToAlignedBytes(overlapMs);
             if (_localNextEndBytes == 0) _localNextEndBytes = firstWindowBytes;
 
             while (_localProcessedEndBytes < snapshot.TotalLengthBytes)
@@ -318,7 +350,15 @@ public sealed class FlowClient : IAsyncDisposable
                 startByte -= startByte % blockAlign;
                 var window = _audio.GetSnapshot(startByte, endByte);
                 var wav = AudioCapture.ToWhisperWave(window, 0, window.Raw.Length);
-                var chunkText = await _localWhisperSession.TranscribeAsync(wav, cancellationToken);
+                Action<string>? onPartial = isWordMode && !flushRemaining
+                    ? partial =>
+                    {
+                        var live = MergeTranscriptChunks(_localRawTranscript, partial);
+                        if (!string.IsNullOrWhiteSpace(live))
+                            TranscriptPreviewChanged?.Invoke(live);
+                    }
+                    : null;
+                var chunkText = await session.TranscribeAsync(wav, cancellationToken, onPartial);
                 _localProcessedEndBytes = endByte;
                 _localNextEndBytes = endByte + stepBytes;
                 if (!string.IsNullOrWhiteSpace(chunkText))
@@ -423,9 +463,17 @@ public sealed class FlowClient : IAsyncDisposable
         _localPreviewCancellation?.Dispose();
         _localPreviewCancellation = null;
         _localPreviewTask = null;
+        if (_localSessionTask is not null)
+        {
+            try
+            {
+                _localWhisperSession ??= await _localSessionTask;
+            }
+            catch { }
+            _localSessionTask = null;
+        }
         _localWhisperSession?.Dispose();
         _localWhisperSession = null;
-        await Task.CompletedTask;
     }
 
     public async Task<SyncSummary> SyncPendingAsync()

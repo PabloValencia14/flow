@@ -677,6 +677,22 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0">
+                                                <TextBlock Text="Vista previa en la burbuja" FontSize="11.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,0,0,4" />
+                                                <ComboBox x:Name="TranscriptPreviewModeComboBox" AutomationProperties.Name="Vista previa en la burbuja" Background="{DynamicResource BrushBgInput}" Foreground="{DynamicResource BrushTextPrimary}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" Padding="8,6" SelectionChanged="LocalEngineSelection_Changed">
+                                                    <ComboBoxItem Content="Palabra por palabra (progresivo)" Tag="word" />
+                                                    <ComboBoxItem Content="En bloque (por fragmentos)" Tag="block" />
+                                                </ComboBox>
+                                                <TextBlock x:Name="TranscriptPreviewModeHint" Text="Vista previa activa durante la grabación con Whisper local." FontSize="11" Foreground="{DynamicResource BrushTextMuted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <Grid Margin="0,10,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="12" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
                                                 <TextBlock Text="Modelo Whisper" FontSize="11.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,0,0,4" />
                                                 <ComboBox x:Name="WhisperModelComboBox" Background="{DynamicResource BrushBgInput}" Foreground="{DynamicResource BrushTextPrimary}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" Padding="8,6" SelectionChanged="LocalEngineSelection_Changed">
                                                     <ComboBoxItem Content="small · más preciso" Tag="small" />

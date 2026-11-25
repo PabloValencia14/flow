@@ -18,6 +18,7 @@ public partial class RecordingIndicatorWindow : Window
     private readonly DispatcherTimer _durationTimer;
     private DateTime _recordStartTime;
     private bool _showTranscriptPreview;
+    private bool _wordByWordPreview = true;
     private string _lastPreviewText = string.Empty;
     private int _visualGeneration;
     private volatile bool _acceptAudioLevels;
@@ -69,7 +70,7 @@ public partial class RecordingIndicatorWindow : Window
             RenderTranscriptPreview(_lastPreviewText, _lastPreviewText, settled: _indicatorState == "success");
     }
 
-    public void ShowRecording(bool showTranscriptPreview = false)
+    public void ShowRecording(bool showTranscriptPreview = false, bool wordByWordPreview = true)
     {
         ++_visualGeneration;
         StopVisuals();
@@ -81,6 +82,7 @@ public partial class RecordingIndicatorWindow : Window
         BeginAnimation(OpacityProperty, null);
         _recordStartTime = DateTime.UtcNow;
         _showTranscriptPreview = showTranscriptPreview;
+        _wordByWordPreview = wordByWordPreview;
         _lastPreviewText = string.Empty;
         DurationLabel.Text = "0:00";
         Width = 384;
@@ -266,6 +268,17 @@ public partial class RecordingIndicatorWindow : Window
     {
         TranscriptPreviewText.Inlines.Clear();
         var end = text.TrimEnd().Length;
+        if (!_wordByWordPreview)
+        {
+            var blockCommon = 0;
+            while (blockCommon < Math.Min(previous.Length, end) && previous[blockCommon] == text[blockCommon])
+                blockCommon++;
+            while (blockCommon > 0 && blockCommon < end && !char.IsWhiteSpace(text[blockCommon - 1]))
+                blockCommon--;
+            if (blockCommon > 0) AppendPreviewRun(text[..blockCommon], false);
+            if (blockCommon < end) AppendPreviewRun(text[blockCommon..end], false, settled ? -1 : 0);
+            return;
+        }
         var pendingStart = end;
         if (!settled)
         {

@@ -86,7 +86,7 @@ public sealed class LocalWhisperSession : IDisposable
 
     public string Model { get; }
 
-    public async Task<string> TranscribeAsync(byte[] wav, CancellationToken cancellationToken)
+    public async Task<string> TranscribeAsync(byte[] wav, CancellationToken cancellationToken, Action<string>? onPartial = null)
     {
         if (wav.Length <= 44) return string.Empty;
         await _processing.WaitAsync(cancellationToken);
@@ -96,7 +96,11 @@ public sealed class LocalWhisperSession : IDisposable
             var segments = new List<string>();
             await foreach (var result in _processor.ProcessAsync(stream).WithCancellation(cancellationToken))
             {
-                if (!string.IsNullOrWhiteSpace(result.Text)) segments.Add(result.Text.Trim());
+                if (!string.IsNullOrWhiteSpace(result.Text))
+                {
+                    segments.Add(result.Text.Trim());
+                    onPartial?.Invoke(string.Join(" ", segments).Trim());
+                }
             }
             return string.Join(" ", segments).Trim();
         }

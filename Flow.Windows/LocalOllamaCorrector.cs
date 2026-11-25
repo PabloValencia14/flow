@@ -15,6 +15,25 @@ public sealed class LocalOllamaCorrector(HttpClient? http = null) : IDisposable
     };
     private readonly bool _ownsClient = http is null;
 
+    public static bool IsExecutableInstalled()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var defaultExe = Path.Combine(localAppData, "Programs", "Ollama", "ollama.exe");
+        if (File.Exists(defaultExe)) return true;
+
+        var pathEnv = Environment.GetEnvironmentVariable("PATH");
+        if (string.IsNullOrWhiteSpace(pathEnv)) return false;
+        foreach (var dir in pathEnv.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            try
+            {
+                if (File.Exists(Path.Combine(dir.Trim(), "ollama.exe"))) return true;
+            }
+            catch { }
+        }
+        return false;
+    }
+
     public async Task<IReadOnlyList<string>> GetInstalledModelsAsync(CancellationToken cancellationToken = default)
     {
         using var response = await SendLoopbackAsync(HttpMethod.Get, "api/tags", null, cancellationToken);
@@ -35,20 +54,31 @@ public sealed class LocalOllamaCorrector(HttpClient? http = null) : IDisposable
         {
             Content = JsonContent.Create(new { name = normalized, stream = true })
         };
-        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        await EnsureSuccessAsync(response, cancellationToken);
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var reader = new StreamReader(stream);
-        while (await reader.ReadLineAsync(cancellationToken) is { } line)
+        HttpResponseMessage response;
+        try
         {
-            if (string.IsNullOrWhiteSpace(line)) continue;
-            using var json = JsonDocument.Parse(line);
-            var root = json.RootElement;
-            if (root.TryGetProperty("error", out var error) && !string.IsNullOrWhiteSpace(error.GetString()))
-                throw new InvalidOperationException($"Ollama: {error.GetString()}");
-            var completed = ReadInt64(root, "completed");
-            var total = ReadInt64(root, "total");
-            if (total > 0) progress?.Report((completed, total));
+            response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        }
+        catch (HttpRequestException error)
+        {
+            throw new InvalidOperationException(BuildUnavailableMessage(), error);
+        }
+        using (response)
+        {
+            await EnsureSuccessAsync(response, cancellationToken);
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var reader = new StreamReader(stream);
+            while (await reader.ReadLineAsync(cancellationToken) is { } line)
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                using var json = JsonDocument.Parse(line);
+                var root = json.RootElement;
+                if (root.TryGetProperty("error", out var error) && !string.IsNullOrWhiteSpace(error.GetString()))
+                    throw new InvalidOperationException($"Ollama: {error.GetString()}");
+                var completed = ReadInt64(root, "completed");
+                var total = ReadInt64(root, "total");
+                if (total > 0) progress?.Report((completed, total));
+            }
         }
     }
 
@@ -103,9 +133,13 @@ public sealed class LocalOllamaCorrector(HttpClient? http = null) : IDisposable
         }
         catch (HttpRequestException error)
         {
-            throw new InvalidOperationException("Ollama no está disponible en este equipo. Instálalo y arráncalo para usar la corrección local.", error);
+            throw new InvalidOperationException(BuildUnavailableMessage(), error);
         }
     }
+
+    private static string BuildUnavailableMessage() => IsExecutableInstalled()
+        ? "Ollama está instalado, pero el servidor local (127.0.0.1:11434) no está activo. Arráncalo o ejecuta 'ollama serve'."
+        : "Ollama no está disponible en este equipo. Instálalo y arráncalo para usar la corrección local.";
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {

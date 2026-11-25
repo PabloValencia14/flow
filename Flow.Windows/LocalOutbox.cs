@@ -13,6 +13,7 @@ internal static class FlowSettingKeys
     public const string SoundsEnabled = "sounds_enabled";
     public const string TranscriptionProvider = "local_transcription_provider";
     public const string TranscriptionModel = "local_transcription_model";
+    public const string TranscriptPreviewMode = "transcript_preview_mode";
     public const string CorrectionProvider = "local_correction_provider";
     public const string OllamaModel = "local_ollama_model";
 }

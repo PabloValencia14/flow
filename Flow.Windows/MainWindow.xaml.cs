@@ -589,7 +589,7 @@ public partial class MainWindow : Window
             _client.SetPasteTarget(_lastExternalWindow, _lastExternalAppName);
             await _client.StartDictationAsync();
             if (!fromShortcut) _shortcut.NotifyExternalStart();
-            _flowBar.ShowRecording(_client.UsesLocalTranscription);
+            _flowBar.ShowRecording(_client.UsesLocalTranscription, _client.ActiveTranscriptPreviewMode != "block");
         }
         catch (Exception error)
         {
@@ -1027,6 +1027,8 @@ public partial class MainWindow : Window
                 await _client.Outbox.GetSettingAsync(FlowSettingKeys.TranscriptionProvider, "groq") ?? "groq");
             SetComboBoxTag(CorrectionProviderComboBox,
                 await _client.Outbox.GetSettingAsync(FlowSettingKeys.CorrectionProvider, "groq") ?? "groq");
+            SetComboBoxTag(TranscriptPreviewModeComboBox,
+                await _client.Outbox.GetSettingAsync(FlowSettingKeys.TranscriptPreviewMode, "word") ?? "word");
             SetComboBoxTag(WhisperModelComboBox,
                 await _client.Outbox.GetSettingAsync(FlowSettingKeys.TranscriptionModel, LocalWhisperTranscriber.DefaultModel) ?? LocalWhisperTranscriber.DefaultModel);
             OllamaModelInput.Text = await _client.Outbox.GetSettingAsync(FlowSettingKeys.OllamaModel, LocalOllamaCorrector.DefaultModel)
@@ -1036,6 +1038,7 @@ public partial class MainWindow : Window
         {
             _loadingLocalEngineSettings = false;
             RefreshWhisperModelStatus();
+            RefreshTranscriptPreviewHint();
         }
     }
 
@@ -1048,6 +1051,7 @@ public partial class MainWindow : Window
             {
                 var provider = GetComboBoxTag(TranscriptionProviderComboBox);
                 if (provider is not null) await _client.Outbox.SetSettingAsync(FlowSettingKeys.TranscriptionProvider, provider);
+                RefreshTranscriptPreviewHint();
                 UpdateStatus(provider == "whisper" ? "Whisper local seleccionado para los nuevos dictados." : "Groq seleccionado para los nuevos dictados.");
             }
             else if (ReferenceEquals(sender, CorrectionProviderComboBox))
@@ -1055,6 +1059,13 @@ public partial class MainWindow : Window
                 var provider = GetComboBoxTag(CorrectionProviderComboBox);
                 if (provider is not null) await _client.Outbox.SetSettingAsync(FlowSettingKeys.CorrectionProvider, provider);
                 UpdateStatus(provider == "ollama" ? "Ollama local seleccionado para la corrección." : "Groq seleccionado para la corrección.");
+            }
+            else if (ReferenceEquals(sender, TranscriptPreviewModeComboBox))
+            {
+                var mode = GetComboBoxTag(TranscriptPreviewModeComboBox);
+                if (mode is not null) await _client.Outbox.SetSettingAsync(FlowSettingKeys.TranscriptPreviewMode, mode);
+                RefreshTranscriptPreviewHint();
+                UpdateStatus(mode == "block" ? "Vista previa configurada en bloque." : "Vista previa configurada palabra por palabra.");
             }
             else if (ReferenceEquals(sender, WhisperModelComboBox))
             {
@@ -1129,7 +1140,7 @@ public partial class MainWindow : Window
         }
         catch (Exception error)
         {
-            OllamaModelStatus.Text = "Ollama no disponible o no pudo descargar el modelo.";
+            OllamaModelStatus.Text = error.Message;
             UpdateStatus($"Error al descargar desde Ollama: {error.Message}");
         }
         finally { DownloadOllamaModelButton.IsEnabled = true; }
@@ -1153,7 +1164,9 @@ public partial class MainWindow : Window
         }
         catch (Exception error)
         {
-            OllamaModelStatus.Text = "Ollama no responde en este equipo.";
+            OllamaModelStatus.Text = LocalOllamaCorrector.IsExecutableInstalled()
+                ? "Ollama está instalado, pero no responde en 127.0.0.1:11434. Arráncalo o ejecuta 'ollama serve'."
+                : "Ollama no responde en este equipo.";
             UpdateStatus($"No se pudo conectar con Ollama: {error.Message}");
         }
     }
@@ -1165,6 +1178,18 @@ public partial class MainWindow : Window
             Process.Start(new ProcessStartInfo("https://ollama.com/download/windows") { UseShellExecute = true });
         }
         catch (Exception error) { UpdateStatus($"No se pudo abrir la página de Ollama: {error.Message}"); }
+    }
+
+    private void RefreshTranscriptPreviewHint()
+    {
+        if (TranscriptPreviewModeHint is null) return;
+        var provider = GetComboBoxTag(TranscriptionProviderComboBox);
+        var mode = GetComboBoxTag(TranscriptPreviewModeComboBox);
+        TranscriptPreviewModeHint.Text = provider == "whisper"
+            ? mode == "block"
+                ? "En bloque: muestra frases completas por fragmentos con Whisper local."
+                : "Palabra por palabra: muestra el texto progresivamente mientras hablas con Whisper local."
+            : "La vista previa en vivo requiere seleccionar Whisper (local) en Transcripción; con Groq se transcribe al terminar.";
     }
 
     private void RefreshWhisperModelStatus()
