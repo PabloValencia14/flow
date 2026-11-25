@@ -559,7 +559,7 @@
       },
       {
         "name": "island",
-        "value": "0 3px 24px rgb(0 0 0 / 0.38)",
+        "value": "0 3px 18px rgb(0 0 0 / 0.38)",
         "purpose": "Traducción de la sombra exterior WPF de la cápsula en tema oscuro (0.18 en tema claro)."
       },
       {

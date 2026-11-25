@@ -85,8 +85,8 @@ public partial class RecordingIndicatorWindow : Window
         _wordByWordPreview = wordByWordPreview;
         _lastPreviewText = string.Empty;
         DurationLabel.Text = "0:00";
-        Width = 384;
-        Height = 184;
+        Width = 404;
+        Height = 208;
         PillBorder.Width = 344;
         PillBorder.MinHeight = 52;
         TranscriptPreviewText.Inlines.Clear();
@@ -376,7 +376,7 @@ public partial class RecordingIndicatorWindow : Window
     {
         var workArea = SystemParameters.WorkArea;
         Left = workArea.Left + (workArea.Width - Width) / 2;
-        Top = workArea.Top + 2;
+        Top = workArea.Top - 4;
     }
 
     private void PillBorder_MouseDown(object sender, MouseButtonEventArgs e)

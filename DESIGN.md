@@ -196,7 +196,7 @@ La ventana principal tiene tamaño inicial 1112 × 752 DIP y mínimo 912 × 632 
 
 Las filas Auto contienen cabeceras y herramientas; las listas y ajustes usan la altura restante con scroll vertical. La búsqueda se estira entre filtros y acción secundaria. En reuniones, la lista mide 250 y el separador 16. Los formularios combinan columnas proporcionales y separadores de 10, 12 o 16. El ritmo reutilizado de separación figura en spacing; los módulos WisprCard declaran padding 16.
 
-La cápsula mide 344 de ancho dentro de una ventana transparente de 384 × 184; su mínimo de altura inicial es 52. Al mostrar texto, el mínimo de la cápsula pasa a 80, manteniendo la misma anchura y el borde superior anclado. La ventana se posiciona en el centro superior del área de trabajo, a 2 DIP del borde superior; la cápsula conserva un margen superior de 12 DIP. El texto tiene margen 8,7,8,0 y viewport de máximo 82 de alto con scroll vertical automático y horizontal desactivado. El code-behind conserva los últimos 900 caracteres con prefijo de elipsis y desplaza el scroll al final.
+La cápsula mide 344 de ancho dentro de una ventana transparente de 404 × 208; su mínimo de altura inicial es 52. Al mostrar texto, el mínimo de la cápsula pasa a 80, manteniendo la misma anchura y el borde superior anclado. La ventana se posiciona en el centro superior del área de trabajo (`Top = WorkArea.Top - 4`); la cápsula conserva un margen superior de 18 DIP dentro de la ventana (dejando espacio completo para la sombra sin recortes). El texto tiene margen 8,7,8,0 y viewport de máximo 82 de alto con scroll vertical automático y horizontal desactivado. El code-behind conserva los últimos 900 caracteres con prefijo de elipsis y desplaza el scroll al final.
 
 ## Elevation & Depth
 
@@ -205,7 +205,7 @@ Los módulos internos son planos: fondos tonales y bordes de 1 separan áreas. H
 ### Shadow Vocabulary
 
 - **Marco principal:** DropShadowEffect negro, BlurRadius 18, ShadowDepth 3, Direction 270 y Opacity 0.32.
-- **Cápsula:** DropShadowEffect negro, BlurRadius 24, ShadowDepth 3, Direction 270 y Opacity 0.38 en tema oscuro (0.18 en tema claro).
+- **Cápsula:** DropShadowEffect negro, BlurRadius 18, ShadowDepth 3, Direction 270 y Opacity 0.38 en tema oscuro (0.18 en tema claro).
 - **Señal:** halos radiales alrededor de las partículas más intensas, dibujados en el mismo visual nativo, con radio 2.3 veces el tamaño de la partícula.
 
 El sidecar traduce estas sombras a CSS para muestras del panel; CSS y WPF no garantizan rasterización idéntica. La entrada de cápsula anima escala horizontal 0.52 a 1 en 350 ms con BackEase, escala vertical (0.80 a 1) y descenso desde arriba (-14 a 0 DIP) en 300 ms, y opacidad en 180 ms. Al recibir la primera transcripción se expande verticalmente hacia abajo en 240 ms. Solo los términos nuevos o modificados se revelan con opacidad en 220 ms. La salida dura 190 ms regresando hacia arriba (-10 DIP) y el pulso cuadrado alterna escala y opacidad en 800 ms con autorreversa. Se respeta ClientAreaAnimation de Windows y las animaciones continuas se detienen al ocultar, cancelar o finalizar.

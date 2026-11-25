@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:Flow.Windows"
-        Width="384" Height="184"
+        Width="404" Height="208"
         WindowStyle="None"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
@@ -15,13 +15,13 @@
         <Border x:Name="PillBorder"
                 Width="344" MinHeight="52" Height="Auto"
                 HorizontalAlignment="Center"
-                VerticalAlignment="Top" Margin="0,12,0,0"
+                VerticalAlignment="Top" Margin="0,18,0,0"
                 Padding="12,9"
                 CornerRadius="28"
                 Background="{DynamicResource BrushIslandBg}"
                 BorderBrush="{DynamicResource BrushIslandBorder}"
                 BorderThickness="1"
-                ClipToBounds="True"
+                ClipToBounds="False"
                 MouseDown="PillBorder_MouseDown"
                 RenderTransformOrigin="0.5,0">
             <Border.RenderTransform>
@@ -31,7 +31,7 @@
                 </TransformGroup>
             </Border.RenderTransform>
             <Border.Effect>
-                <DropShadowEffect x:Name="PillShadow" BlurRadius="24" ShadowDepth="3" Direction="270" Opacity="0.38" Color="#000000" />
+                <DropShadowEffect x:Name="PillShadow" BlurRadius="18" ShadowDepth="3" Direction="270" Opacity="0.38" Color="#000000" />
             </Border.Effect>
 
             <Grid VerticalAlignment="Center">
