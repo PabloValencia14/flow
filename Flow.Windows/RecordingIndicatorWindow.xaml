@@ -15,7 +15,7 @@
         <Border x:Name="PillBorder"
                 Width="344" MinHeight="52" Height="Auto"
                 HorizontalAlignment="Center"
-                VerticalAlignment="Bottom" Margin="0,0,0,18"
+                VerticalAlignment="Top" Margin="0,12,0,0"
                 Padding="12,9"
                 CornerRadius="28"
                 Background="{DynamicResource BrushIslandBg}"
@@ -23,7 +23,7 @@
                 BorderThickness="1"
                 ClipToBounds="True"
                 MouseDown="PillBorder_MouseDown"
-                RenderTransformOrigin="0.5,1">
+                RenderTransformOrigin="0.5,0">
             <Border.RenderTransform>
                 <TransformGroup>
                     <ScaleTransform x:Name="PillScale" ScaleX="1" ScaleY="1" />

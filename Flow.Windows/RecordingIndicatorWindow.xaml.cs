@@ -40,7 +40,7 @@ public partial class RecordingIndicatorWindow : Window
             StopVisuals();
         };
         ApplyTheme(ThemeManager.IsLightActive);
-        PositionBottomCenter();
+        PositionTopCenter();
     }
 
     private void OnThemeChanged(AppTheme _, bool isLight)
@@ -98,7 +98,7 @@ public partial class RecordingIndicatorWindow : Window
         WaveBarsContainer.Width = 224;
         ApplyTheme(ThemeManager.IsLightActive);
 
-        PositionBottomCenter();
+        PositionTopCenter();
         AnimateIn();
         StartPulseAnimation();
         WaveBarsContainer.BeginRecording();
@@ -182,12 +182,12 @@ public partial class RecordingIndicatorWindow : Window
         {
             EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.34 }
         };
-        var heightAnim = new DoubleAnimation(0.85, 1.0, new Duration(TimeSpan.FromMilliseconds(300)))
+        var heightAnim = new DoubleAnimation(0.80, 1.0, new Duration(TimeSpan.FromMilliseconds(300)))
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         };
-        var opacityAnim = new DoubleAnimation(0.55, 1.0, new Duration(TimeSpan.FromMilliseconds(180)));
-        var transAnim = new DoubleAnimation(5, 0, new Duration(TimeSpan.FromMilliseconds(300)))
+        var opacityAnim = new DoubleAnimation(0.45, 1.0, new Duration(TimeSpan.FromMilliseconds(180)));
+        var transAnim = new DoubleAnimation(-14, 0, new Duration(TimeSpan.FromMilliseconds(300)))
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         };
@@ -213,7 +213,11 @@ public partial class RecordingIndicatorWindow : Window
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
         };
-        var heightAnim = new DoubleAnimation(PillScale.ScaleY, 0.84, new Duration(TimeSpan.FromMilliseconds(190)));
+        var heightAnim = new DoubleAnimation(PillScale.ScaleY, 0.80, new Duration(TimeSpan.FromMilliseconds(190)));
+        var transAnim = new DoubleAnimation(PillTranslate.Y, -10, new Duration(TimeSpan.FromMilliseconds(190)))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+        };
         var opacityAnim = new DoubleAnimation(Opacity, 0.0, new Duration(TimeSpan.FromMilliseconds(190)));
         opacityAnim.Completed += (_, _) =>
         {
@@ -222,6 +226,7 @@ public partial class RecordingIndicatorWindow : Window
 
         PillScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnim);
         PillScale.BeginAnimation(ScaleTransform.ScaleYProperty, heightAnim);
+        PillTranslate.BeginAnimation(TranslateTransform.YProperty, transAnim);
         BeginAnimation(OpacityProperty, opacityAnim);
     }
 
@@ -361,17 +366,17 @@ public partial class RecordingIndicatorWindow : Window
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         });
-        TranscriptRise.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(4, 0, new Duration(TimeSpan.FromMilliseconds(190)))
+        TranscriptRise.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(-4, 0, new Duration(TimeSpan.FromMilliseconds(190)))
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         });
     }
 
-    private void PositionBottomCenter()
+    private void PositionTopCenter()
     {
         var workArea = SystemParameters.WorkArea;
         Left = workArea.Left + (workArea.Width - Width) / 2;
-        Top = workArea.Top + workArea.Height - Height - 12;
+        Top = workArea.Top + 2;
     }
 
     private void PillBorder_MouseDown(object sender, MouseButtonEventArgs e)

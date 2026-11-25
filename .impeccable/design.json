@@ -572,17 +572,17 @@
       {
         "name": "island-enter",
         "value": "350ms BackEase EaseOut",
-        "purpose": "Expansión horizontal 0.52 a 1; escala vertical y desplazamiento en 300ms, opacidad en 180ms."
+        "purpose": "Expansión horizontal 0.52 a 1; escala vertical (0.80 a 1) y descenso desde arriba (-14 a 0 DIP) en 300ms, opacidad en 180ms."
       },
       {
         "name": "island-expand",
         "value": "240ms CubicEase EaseOut",
-        "purpose": "Expansión vertical al recibir texto, con el borde inferior anclado."
+        "purpose": "Expansión vertical hacia abajo al recibir texto, con el borde superior anclado."
       },
       {
         "name": "island-exit",
         "value": "190ms CubicEase EaseIn",
-        "purpose": "Salida de escala y opacidad."
+        "purpose": "Salida de escala, desplazamiento hacia arriba (-10 DIP) y opacidad."
       },
       {
         "name": "transcript-opacity",
