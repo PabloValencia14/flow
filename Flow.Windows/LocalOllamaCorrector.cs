@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -9,29 +10,118 @@ public sealed class LocalOllamaCorrector(HttpClient? http = null) : IDisposable
 {
     public const string DefaultModel = "qwen3:4b-instruct";
     private static readonly Uri OllamaBaseUri = new("http://127.0.0.1:11434/");
+    private static readonly SemaphoreSlim ServerLock = new(1, 1);
+    private static Process? _managedServerProcess;
     private readonly HttpClient _http = http ?? new HttpClient(new SocketsHttpHandler { UseProxy = false })
     {
         Timeout = TimeSpan.FromMinutes(5)
     };
     private readonly bool _ownsClient = http is null;
 
-    public static bool IsExecutableInstalled()
+    public static bool IsExecutableInstalled() => ResolveExecutablePath() is not null;
+
+    private static string? ResolveExecutablePath()
     {
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var defaultExe = Path.Combine(localAppData, "Programs", "Ollama", "ollama.exe");
-        if (File.Exists(defaultExe)) return true;
+        if (File.Exists(defaultExe)) return defaultExe;
 
         var pathEnv = Environment.GetEnvironmentVariable("PATH");
-        if (string.IsNullOrWhiteSpace(pathEnv)) return false;
+        if (string.IsNullOrWhiteSpace(pathEnv)) return null;
         foreach (var dir in pathEnv.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
         {
             try
             {
-                if (File.Exists(Path.Combine(dir.Trim(), "ollama.exe"))) return true;
+                var candidate = Path.Combine(dir.Trim(), "ollama.exe");
+                if (File.Exists(candidate)) return candidate;
             }
             catch { }
         }
-        return false;
+        return null;
+    }
+
+    public static async Task<bool> EnsureServerRunningAsync(CancellationToken cancellationToken = default)
+    {
+        if (await IsServerRespondingAsync(cancellationToken)) return true;
+
+        var exePath = ResolveExecutablePath();
+        if (exePath is null) return false;
+
+        await ServerLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (await IsServerRespondingAsync(cancellationToken)) return true;
+
+            if (_managedServerProcess is null || _managedServerProcess.HasExited)
+            {
+                _managedServerProcess?.Dispose();
+                _managedServerProcess = Process.Start(new ProcessStartInfo(exePath, "serve")
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                });
+            }
+
+            if (_managedServerProcess is null) return false;
+
+            for (var attempt = 0; attempt < 32; attempt++)
+            {
+                if (_managedServerProcess.HasExited)
+                    return await IsServerRespondingAsync(cancellationToken);
+
+                await Task.Delay(250, cancellationToken);
+                if (await IsServerRespondingAsync(cancellationToken))
+                    return true;
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            ServerLock.Release();
+        }
+    }
+
+    public static void StopManagedServer()
+    {
+        try
+        {
+            var process = Interlocked.Exchange(ref _managedServerProcess, null);
+            if (process is null) return;
+            try
+            {
+                if (!process.HasExited)
+                    process.Kill(entireProcessTree: true);
+            }
+            catch { }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+        catch { }
+    }
+
+    private static async Task<bool> IsServerRespondingAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var probeClient = new HttpClient(new SocketsHttpHandler { UseProxy = false })
+            {
+                Timeout = TimeSpan.FromMilliseconds(1_200)
+            };
+            using var response = await probeClient.GetAsync(new Uri(OllamaBaseUri, "api/tags"), cancellationToken);
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public async Task<IReadOnlyList<string>> GetInstalledModelsAsync(CancellationToken cancellationToken = default)

@@ -163,6 +163,7 @@ public partial class MainWindow : Window
             await LoadCorrectionOptionsAsync();
             await LoadStyleSettingsAsync();
             await LoadLocalEngineSettingsAsync();
+            _ = EnsureOllamaOnStartupAsync();
 
             ServerUrlInput.Text = await _client.GetSyncServerUrlAsync() ?? string.Empty;
             ServerTokenInput.Text = _client.HasFlowHubToken ? "●●●●●●●●" : string.Empty;
@@ -202,6 +203,7 @@ public partial class MainWindow : Window
             _shortcut.Dispose();
             StopMeetingPlayback();
             _flowBar.Close();
+            LocalOllamaCorrector.StopManagedServer();
             await _client.DisposeAsync();
         };
 
@@ -1052,12 +1054,14 @@ public partial class MainWindow : Window
                 var provider = GetComboBoxTag(TranscriptionProviderComboBox);
                 if (provider is not null) await _client.Outbox.SetSettingAsync(FlowSettingKeys.TranscriptionProvider, provider);
                 RefreshTranscriptPreviewHint();
+                if (provider == "whisper") _ = LocalOllamaCorrector.EnsureServerRunningAsync();
                 UpdateStatus(provider == "whisper" ? "Whisper local seleccionado para los nuevos dictados." : "Groq seleccionado para los nuevos dictados.");
             }
             else if (ReferenceEquals(sender, CorrectionProviderComboBox))
             {
                 var provider = GetComboBoxTag(CorrectionProviderComboBox);
                 if (provider is not null) await _client.Outbox.SetSettingAsync(FlowSettingKeys.CorrectionProvider, provider);
+                if (provider == "ollama") _ = LocalOllamaCorrector.EnsureServerRunningAsync();
                 UpdateStatus(provider == "ollama" ? "Ollama local seleccionado para la corrección." : "Groq seleccionado para la corrección.");
             }
             else if (ReferenceEquals(sender, TranscriptPreviewModeComboBox))
@@ -1127,6 +1131,8 @@ public partial class MainWindow : Window
         try
         {
             await _client.Outbox.SetSettingAsync(FlowSettingKeys.OllamaModel, model);
+            OllamaModelStatus.Text = "Iniciando servidor local de Ollama…";
+            await LocalOllamaCorrector.EnsureServerRunningAsync();
             OllamaModelStatus.Text = $"Descargando {model} desde Ollama…";
             var progress = new Progress<(long Completed, long Total)>(value =>
             {
@@ -1151,13 +1157,14 @@ public partial class MainWindow : Window
         OllamaModelStatus.Text = "Comprobando Ollama local…";
         try
         {
+            await LocalOllamaCorrector.EnsureServerRunningAsync();
             using var corrector = new LocalOllamaCorrector();
             var models = await corrector.GetInstalledModelsAsync();
             var selected = OllamaModelInput.Text.Trim();
             var installed = models.Any(model => string.Equals(model, selected, StringComparison.OrdinalIgnoreCase) ||
                                                 model.StartsWith(selected + ":", StringComparison.OrdinalIgnoreCase));
             OllamaModelStatus.Text = models.Count == 0
-                ? "Ollama responde, pero no hay modelos descargados."
+                ? "Ollama en marcha, pero no hay modelos descargados."
                 : installed
                     ? $"Ollama disponible · {selected} instalado."
                     : $"Ollama disponible · {models.Count} modelo(s); {selected} no está instalado.";
@@ -1169,6 +1176,21 @@ public partial class MainWindow : Window
                 : "Ollama no responde en este equipo.";
             UpdateStatus($"No se pudo conectar con Ollama: {error.Message}");
         }
+    }
+
+    private async Task EnsureOllamaOnStartupAsync()
+    {
+        try
+        {
+            var transcription = await _client.Outbox.GetSettingAsync(FlowSettingKeys.TranscriptionProvider, "groq");
+            var correction = await _client.Outbox.GetSettingAsync(FlowSettingKeys.CorrectionProvider, "groq");
+            if (string.Equals(transcription, "whisper", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(correction, "ollama", StringComparison.OrdinalIgnoreCase))
+            {
+                await LocalOllamaCorrector.EnsureServerRunningAsync();
+            }
+        }
+        catch { }
     }
 
     private void OpenOllamaDownload_Click(object sender, RoutedEventArgs e)

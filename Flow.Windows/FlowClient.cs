@@ -210,6 +210,7 @@ public sealed class FlowClient : IAsyncDisposable
             {
                 try
                 {
+                    await LocalOllamaCorrector.EnsureServerRunningAsync(CancellationToken.None);
                     correctedText = await _localCorrector.TryCorrectAsync(
                         correctionInput, _activeCorrectionContext, _activeCorrectionModel, CancellationToken.None);
                     if (correctedText is not null) _activeCorrectionModel = $"ollama:{_activeCorrectionModel}";

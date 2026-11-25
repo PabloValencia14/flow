@@ -705,7 +705,7 @@
                                             <StackPanel Grid.Column="2">
                                                 <TextBlock Text="Modelo Ollama" FontSize="11.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,0,0,4" />
                                                 <TextBox x:Name="OllamaModelInput" Text="qwen3:4b-instruct" Style="{StaticResource WisprTextBox}" />
-                                                <TextBlock Text="Ollama debe estar instalado y en ejecución." FontSize="11" Foreground="{DynamicResource BrushTextMuted}" Margin="0,4,0,6" />
+                                                <TextBlock Text="Flow arranca Ollama automáticamente si está instalado al usar modo local." FontSize="11" Foreground="{DynamicResource BrushTextMuted}" Margin="0,4,0,6" TextWrapping="Wrap" />
                                                 <StackPanel Orientation="Horizontal">
                                                     <Button Content="Guardar" Style="{StaticResource WisprGhostButton}" HorizontalAlignment="Left" Click="SaveOllamaModel_Click" />
                                                     <Button x:Name="DownloadOllamaModelButton" Content="Descargar" Style="{StaticResource WisprGhostButton}" Margin="8,0,0,0" Click="DownloadOllamaModel_Click" />
