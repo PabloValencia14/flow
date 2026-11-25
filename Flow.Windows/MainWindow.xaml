@@ -682,7 +682,7 @@
                                                     <ComboBoxItem Content="Palabra por palabra (progresivo)" Tag="word" />
                                                     <ComboBoxItem Content="En bloque (por fragmentos)" Tag="block" />
                                                 </ComboBox>
-                                                <TextBlock x:Name="TranscriptPreviewModeHint" Text="Vista previa activa durante la grabación con Whisper local." FontSize="11" Foreground="{DynamicResource BrushTextMuted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                                <TextBlock x:Name="TranscriptPreviewModeHint" Text="Vista previa activa durante la grabación en la burbuja." FontSize="11" Foreground="{DynamicResource BrushTextMuted}" Margin="0,4,0,0" TextWrapping="Wrap" />
                                             </StackPanel>
                                         </Grid>
 

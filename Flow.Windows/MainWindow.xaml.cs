@@ -591,7 +591,7 @@ public partial class MainWindow : Window
             _client.SetPasteTarget(_lastExternalWindow, _lastExternalAppName);
             await _client.StartDictationAsync();
             if (!fromShortcut) _shortcut.NotifyExternalStart();
-            _flowBar.ShowRecording(_client.UsesLocalTranscription, _client.ActiveTranscriptPreviewMode != "block");
+            _flowBar.ShowRecording(showTranscriptPreview: true, _client.ActiveTranscriptPreviewMode != "block");
         }
         catch (Exception error)
         {
@@ -1216,11 +1216,10 @@ public partial class MainWindow : Window
         if (TranscriptPreviewModeHint is null) return;
         var provider = GetComboBoxTag(TranscriptionProviderComboBox);
         var mode = GetComboBoxTag(TranscriptPreviewModeComboBox);
-        TranscriptPreviewModeHint.Text = provider == "whisper"
-            ? mode == "block"
-                ? "En bloque: muestra frases completas por fragmentos con Whisper local."
-                : "Palabra por palabra: muestra el texto progresivamente mientras hablas con Whisper local."
-            : "La vista previa en vivo requiere seleccionar Whisper (local) en Transcripción; con Groq se transcribe al terminar.";
+        var engineLabel = provider == "whisper" ? "Whisper local" : "Groq (nube)";
+        TranscriptPreviewModeHint.Text = mode == "block"
+            ? $"En bloque: muestra frases completas por fragmentos con {engineLabel}."
+            : $"Palabra por palabra: muestra el texto progresivamente mientras hablas con {engineLabel}.";
     }
 
     private void RefreshWhisperModelStatus()

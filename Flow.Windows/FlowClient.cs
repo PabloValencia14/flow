@@ -12,13 +12,19 @@ public sealed class FlowClient : IAsyncDisposable
     private const string ServerUrlSetting = "flowhub_server_url";
     private const long WordMinInitialMilliseconds = 450;
     private const long WordMinDeltaMilliseconds = 240;
+    private const long CloudWordMinInitialMilliseconds = 700;
+    private const long CloudWordMinDeltaMilliseconds = 900;
     private const long WordMaxTailMilliseconds = 4_500;
     private const long WordCommitKeepTailMilliseconds = 1_500;
     private const long WordPollMilliseconds = 120;
+    private const long CloudWordPollMilliseconds = 250;
     private const long BlockPreviewWindowMilliseconds = 3_200;
     private const long BlockPreviewStepMilliseconds = 2_200;
     private const long BlockPreviewOverlapMilliseconds = 1_800;
     private const long BlockPreviewPollMilliseconds = 800;
+    private const long CloudBlockStepMilliseconds = 2_600;
+    private const long CloudBlockOverlapMilliseconds = 1_400;
+    private const long CloudBlockPollMilliseconds = 900;
     private const long FinalFullWindowMilliseconds = 28_000;
     private const long FinalTailSliceMilliseconds = 22_000;
     private readonly Action<string> _status;
@@ -137,18 +143,15 @@ public sealed class FlowClient : IAsyncDisposable
             SoundManager.PlayStart();
             _status(_activeTranscriptionProvider == "whisper"
                 ? $"Escuchando con «{_audio.InputDeviceName}» · Whisper local ({(_activePreviewMode == "block" ? "en bloque" : "palabra por palabra")})."
-                : $"Escuchando con «{_audio.InputDeviceName}»…");
-            if (_activeTranscriptionProvider == "whisper")
-            {
-                _localProcessedEndBytes = 0;
-                _localNextEndBytes = 0;
-                _localTailStartByte = 0;
-                _localLastWordSampleEndBytes = 0;
-                _localCommittedText = string.Empty;
-                _localRawTranscript = string.Empty;
-                _localPreviewCancellation = new CancellationTokenSource();
-                _localPreviewTask = RunLocalPreviewAsync(_localPreviewCancellation.Token);
-            }
+                : $"Escuchando con «{_audio.InputDeviceName}» · Groq ({(_activePreviewMode == "block" ? "en bloque" : "palabra por palabra")}).");
+            _localProcessedEndBytes = 0;
+            _localNextEndBytes = 0;
+            _localTailStartByte = 0;
+            _localLastWordSampleEndBytes = 0;
+            _localCommittedText = string.Empty;
+            _localRawTranscript = string.Empty;
+            _localPreviewCancellation = new CancellationTokenSource();
+            _localPreviewTask = RunLocalPreviewAsync(_localPreviewCancellation.Token);
         }
         catch
         {
@@ -189,7 +192,13 @@ public sealed class FlowClient : IAsyncDisposable
             }
             else
             {
+                _localPreviewCancellation?.Cancel();
                 var wav = await _audio.StopAsWaveAsync();
+                if (_localPreviewTask is not null)
+                {
+                    try { await _localPreviewTask; }
+                    catch (OperationCanceledException) { }
+                }
                 if (wav.Length < 1_100)
                 {
                     _status("No se ha capturado audio suficiente.");
@@ -339,29 +348,81 @@ public sealed class FlowClient : IAsyncDisposable
     {
         try
         {
-            await EnsureLocalSessionAsync(cancellationToken);
+            if (_activeTranscriptionProvider == "whisper")
+                await EnsureLocalSessionAsync(cancellationToken);
+
+            var isCloud = _activeTranscriptionProvider != "whisper";
             if (_activePreviewMode == "block")
             {
+                var blockPollMs = isCloud ? CloudBlockPollMilliseconds : BlockPreviewPollMilliseconds;
                 while (true)
                 {
-                    await Task.Delay(TimeSpan.FromMilliseconds(BlockPreviewPollMilliseconds), cancellationToken);
-                    await ProcessLocalBlocksAsync(_audio.GetSnapshot(0, 0), cancellationToken);
+                    await Task.Delay(TimeSpan.FromMilliseconds(blockPollMs), cancellationToken);
+                    try
+                    {
+                        await ProcessLocalBlocksAsync(_audio.GetSnapshot(0, 0), cancellationToken);
+                    }
+                    catch (GroqRateLimitException)
+                    {
+                        await Task.Delay(TimeSpan.FromMilliseconds(3_000), cancellationToken);
+                    }
+                    catch (Exception error) when (isCloud && error is HttpRequestException or InvalidOperationException or JsonException)
+                    {
+                        if (error.Message.Contains("Falta la credencial", StringComparison.Ordinal)) return;
+                        await Task.Delay(TimeSpan.FromMilliseconds(1_500), cancellationToken);
+                    }
                 }
             }
 
+            var wordPollMs = isCloud ? CloudWordPollMilliseconds : WordPollMilliseconds;
             while (true)
             {
-                await ProcessLocalWordTailAsync(cancellationToken);
-                await Task.Delay(TimeSpan.FromMilliseconds(WordPollMilliseconds), cancellationToken);
+                try
+                {
+                    await ProcessLocalWordTailAsync(cancellationToken);
+                }
+                catch (GroqRateLimitException)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(3_000), cancellationToken);
+                }
+                catch (Exception error) when (isCloud && error is HttpRequestException or InvalidOperationException or JsonException)
+                {
+                    if (error.Message.Contains("Falta la credencial", StringComparison.Ordinal)) return;
+                    await Task.Delay(TimeSpan.FromMilliseconds(1_500), cancellationToken);
+                }
+                await Task.Delay(TimeSpan.FromMilliseconds(wordPollMs), cancellationToken);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
     }
 
+    private async Task<IReadOnlyList<LocalWhisperSegment>> TranscribePreviewSliceAsync(byte[] wav, CancellationToken cancellationToken)
+    {
+        if (!HasSpeechEnergy(wav)) return [];
+        if (_activeTranscriptionProvider == "whisper")
+        {
+            var session = await EnsureLocalSessionAsync(cancellationToken);
+            return session is null ? [] : await session.TranscribePreviewAsync(wav, cancellationToken);
+        }
+        return await _transcriber.TranscribePreviewAsync(wav, cancellationToken);
+    }
+
+    private static bool HasSpeechEnergy(byte[] wav)
+    {
+        if (wav.Length <= 44) return false;
+        const short threshold = 260; // ~0.008 of full-scale PCM16
+        for (var offset = 44; offset + 1 < wav.Length; offset += 2)
+        {
+            var sample = BitConverter.ToInt16(wav, offset);
+            if (sample >= threshold || sample <= -threshold) return true;
+        }
+        return false;
+    }
+
     private async Task ProcessLocalWordTailAsync(CancellationToken cancellationToken)
     {
-        var session = await EnsureLocalSessionAsync(cancellationToken);
-        if (session is null) return;
+        if (_activeTranscriptionProvider == "whisper" && await EnsureLocalSessionAsync(cancellationToken) is null)
+            return;
         await _localPreviewLock.WaitAsync(cancellationToken);
         try
         {
@@ -377,8 +438,9 @@ public sealed class FlowClient : IAsyncDisposable
                 return Math.Max(blockAlign, bytes - bytes % blockAlign);
             }
 
-            var minInitialBytes = ToAlignedBytes(WordMinInitialMilliseconds);
-            var minDeltaBytes = ToAlignedBytes(WordMinDeltaMilliseconds);
+            var isCloud = _activeTranscriptionProvider != "whisper";
+            var minInitialBytes = ToAlignedBytes(isCloud ? CloudWordMinInitialMilliseconds : WordMinInitialMilliseconds);
+            var minDeltaBytes = ToAlignedBytes(isCloud ? CloudWordMinDeltaMilliseconds : WordMinDeltaMilliseconds);
             var maxTailBytes = ToAlignedBytes(WordMaxTailMilliseconds);
             var keepTailBytes = ToAlignedBytes(WordCommitKeepTailMilliseconds);
 
@@ -395,7 +457,7 @@ public sealed class FlowClient : IAsyncDisposable
             var wav = AudioCapture.ToWhisperWave(windowSlice, 0, windowSlice.Raw.Length);
             if (wav.Length <= 44) return;
 
-            var segments = await session.TranscribePreviewAsync(wav, cancellationToken);
+            var segments = await TranscribePreviewSliceAsync(wav, cancellationToken);
             _localLastWordSampleEndBytes = windowEndByte;
 
             var tailText = string.Join(" ", segments.Select(segment => segment.Text)).Trim();
@@ -403,10 +465,10 @@ public sealed class FlowClient : IAsyncDisposable
             {
                 _localRawTranscript = CombineCommittedAndTail(_localCommittedText, tailText);
                 TranscriptPreviewChanged?.Invoke(_localRawTranscript);
-                _status("Transcripción local en curso…");
+                _status(isCloud ? "Transcripción en curso (Groq)…" : "Transcripción local en curso…");
             }
 
-            // Keep the active phrase tail <= ~4.5 s so AudioContextSize(256) stays fast and exact.
+            // Keep the active phrase tail <= ~4.5 s so preview stays responsive and bounded.
             var processedTailBytes = windowEndByte - _localTailStartByte;
             if (processedTailBytes >= maxTailBytes)
             {
@@ -441,8 +503,9 @@ public sealed class FlowClient : IAsyncDisposable
 
     private async Task ProcessLocalBlocksAsync(AudioCaptureSnapshot snapshot, CancellationToken cancellationToken)
     {
-        var session = await EnsureLocalSessionAsync(cancellationToken);
-        if (session is null || snapshot.TotalLengthBytes == 0) return;
+        if (_activeTranscriptionProvider == "whisper" && await EnsureLocalSessionAsync(cancellationToken) is null)
+            return;
+        if (snapshot.TotalLengthBytes == 0) return;
         await _localPreviewLock.WaitAsync(cancellationToken);
         try
         {
@@ -455,9 +518,10 @@ public sealed class FlowClient : IAsyncDisposable
                 return Math.Max(blockAlign, bytes - bytes % blockAlign);
             }
 
+            var isCloud = _activeTranscriptionProvider != "whisper";
             var firstWindowBytes = ToAlignedBytes(BlockPreviewWindowMilliseconds);
-            var stepBytes = ToAlignedBytes(BlockPreviewStepMilliseconds);
-            var overlapBytes = ToAlignedBytes(BlockPreviewOverlapMilliseconds);
+            var stepBytes = ToAlignedBytes(isCloud ? CloudBlockStepMilliseconds : BlockPreviewStepMilliseconds);
+            var overlapBytes = ToAlignedBytes(isCloud ? CloudBlockOverlapMilliseconds : BlockPreviewOverlapMilliseconds);
             if (_localNextEndBytes == 0) _localNextEndBytes = firstWindowBytes;
 
             while (_localProcessedEndBytes < snapshot.TotalLengthBytes)
@@ -472,7 +536,7 @@ public sealed class FlowClient : IAsyncDisposable
                 startByte -= startByte % blockAlign;
                 var window = _audio.GetSnapshot(startByte, endByte);
                 var wav = AudioCapture.ToWhisperWave(window, 0, window.Raw.Length);
-                var segments = await session.TranscribePreviewAsync(wav, cancellationToken);
+                var segments = await TranscribePreviewSliceAsync(wav, cancellationToken);
                 _localProcessedEndBytes = endByte;
                 _localNextEndBytes = endByte + stepBytes;
                 var chunkText = string.Join(" ", segments.Select(segment => segment.Text)).Trim();
@@ -480,7 +544,7 @@ public sealed class FlowClient : IAsyncDisposable
                 {
                     _localRawTranscript = MergeTranscriptChunks(_localRawTranscript, chunkText);
                     TranscriptPreviewChanged?.Invoke(_localRawTranscript);
-                    _status("Transcripción local en curso…");
+                    _status(isCloud ? "Transcripción en curso (Groq)…" : "Transcripción local en curso…");
                 }
             }
         }
