@@ -1054,7 +1054,12 @@ public partial class MainWindow : Window
                 var provider = GetComboBoxTag(TranscriptionProviderComboBox);
                 if (provider is not null) await _client.Outbox.SetSettingAsync(FlowSettingKeys.TranscriptionProvider, provider);
                 RefreshTranscriptPreviewHint();
-                if (provider == "whisper") _ = LocalOllamaCorrector.EnsureServerRunningAsync();
+                if (provider == "whisper")
+                {
+                    _ = LocalOllamaCorrector.EnsureServerRunningAsync();
+                    var whisperModel = GetComboBoxTag(WhisperModelComboBox) ?? LocalWhisperTranscriber.DefaultModel;
+                    _ = _client.PrewarmLocalWhisperAsync(whisperModel);
+                }
                 UpdateStatus(provider == "whisper" ? "Whisper local seleccionado para los nuevos dictados." : "Groq seleccionado para los nuevos dictados.");
             }
             else if (ReferenceEquals(sender, CorrectionProviderComboBox))
@@ -1184,6 +1189,10 @@ public partial class MainWindow : Window
         {
             var transcription = await _client.Outbox.GetSettingAsync(FlowSettingKeys.TranscriptionProvider, "groq");
             var correction = await _client.Outbox.GetSettingAsync(FlowSettingKeys.CorrectionProvider, "groq");
+            var whisperModel = await _client.Outbox.GetSettingAsync(FlowSettingKeys.TranscriptionModel, LocalWhisperTranscriber.DefaultModel)
+                ?? LocalWhisperTranscriber.DefaultModel;
+            if (string.Equals(transcription, "whisper", StringComparison.OrdinalIgnoreCase))
+                _ = _client.PrewarmLocalWhisperAsync(whisperModel);
             if (string.Equals(transcription, "whisper", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(correction, "ollama", StringComparison.OrdinalIgnoreCase))
             {

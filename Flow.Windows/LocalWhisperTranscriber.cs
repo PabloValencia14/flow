@@ -4,6 +4,8 @@ using Whisper.net.Ggml;
 
 namespace Flow.Windows;
 
+public sealed record LocalWhisperSegment(string Text, TimeSpan Start, TimeSpan End);
+
 public static class LocalWhisperTranscriber
 {
     public const string DefaultModel = "small";
@@ -50,13 +52,29 @@ public static class LocalWhisperTranscriber
             throw new InvalidOperationException($"Falta el modelo Whisper «{NormalizeModel(model)}». Descárgalo en Ajustes > Modelos locales.");
 
         var factory = WhisperFactory.FromPath(path);
+        WhisperProcessor? previewProcessor = null;
+        WhisperProcessor? finalProcessor = null;
         try
         {
-            var processor = factory.CreateBuilder().WithLanguage("es").Build();
-            return new LocalWhisperSession(factory, processor, NormalizeModel(model));
+            var threads = Math.Clamp(Environment.ProcessorCount / 2, 4, 8);
+            previewProcessor = factory.CreateBuilder()
+                .WithLanguage("es")
+                .WithThreads(threads)
+                .WithNoContext()
+                .WithGreedySamplingStrategy()
+                .WithAudioContextSize(256)
+                .WithNoSpeechThreshold(0.6f)
+                .Build();
+            finalProcessor = factory.CreateBuilder()
+                .WithLanguage("es")
+                .WithThreads(threads)
+                .Build();
+            return new LocalWhisperSession(factory, previewProcessor, finalProcessor, NormalizeModel(model));
         }
         catch
         {
+            previewProcessor?.Dispose();
+            finalProcessor?.Dispose();
             factory.Dispose();
             throw;
         }
@@ -74,19 +92,47 @@ public static class LocalWhisperTranscriber
 public sealed class LocalWhisperSession : IDisposable
 {
     private readonly WhisperFactory _factory;
-    private readonly WhisperProcessor _processor;
+    private readonly WhisperProcessor _previewProcessor;
+    private readonly WhisperProcessor _finalProcessor;
     private readonly SemaphoreSlim _processing = new(1, 1);
 
-    internal LocalWhisperSession(WhisperFactory factory, WhisperProcessor processor, string model)
+    internal LocalWhisperSession(
+        WhisperFactory factory,
+        WhisperProcessor previewProcessor,
+        WhisperProcessor finalProcessor,
+        string model)
     {
         _factory = factory;
-        _processor = processor;
+        _previewProcessor = previewProcessor;
+        _finalProcessor = finalProcessor;
         Model = model;
     }
 
     public string Model { get; }
 
-    public async Task<string> TranscribeAsync(byte[] wav, CancellationToken cancellationToken, Action<string>? onPartial = null)
+    public async Task<IReadOnlyList<LocalWhisperSegment>> TranscribePreviewAsync(byte[] wav, CancellationToken cancellationToken)
+    {
+        if (wav.Length <= 44) return [];
+        await _processing.WaitAsync(cancellationToken);
+        try
+        {
+            using var stream = new MemoryStream(wav, writable: false);
+            var segments = new List<LocalWhisperSegment>();
+            await foreach (var result in _previewProcessor.ProcessAsync(stream).WithCancellation(cancellationToken))
+            {
+                var text = result.Text?.Trim();
+                if (!string.IsNullOrWhiteSpace(text))
+                    segments.Add(new LocalWhisperSegment(text, result.Start, result.End));
+            }
+            return segments;
+        }
+        finally
+        {
+            _processing.Release();
+        }
+    }
+
+    public async Task<string> TranscribeFinalAsync(byte[] wav, CancellationToken cancellationToken)
     {
         if (wav.Length <= 44) return string.Empty;
         await _processing.WaitAsync(cancellationToken);
@@ -94,13 +140,10 @@ public sealed class LocalWhisperSession : IDisposable
         {
             using var stream = new MemoryStream(wav, writable: false);
             var segments = new List<string>();
-            await foreach (var result in _processor.ProcessAsync(stream).WithCancellation(cancellationToken))
+            await foreach (var result in _finalProcessor.ProcessAsync(stream).WithCancellation(cancellationToken))
             {
                 if (!string.IsNullOrWhiteSpace(result.Text))
-                {
                     segments.Add(result.Text.Trim());
-                    onPartial?.Invoke(string.Join(" ", segments).Trim());
-                }
             }
             return string.Join(" ", segments).Trim();
         }
@@ -112,7 +155,8 @@ public sealed class LocalWhisperSession : IDisposable
 
     public void Dispose()
     {
-        _processor.Dispose();
+        _previewProcessor.Dispose();
+        _finalProcessor.Dispose();
         _factory.Dispose();
         _processing.Dispose();
     }

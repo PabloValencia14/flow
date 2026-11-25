@@ -10,15 +10,17 @@ namespace Flow.Windows;
 public sealed class FlowClient : IAsyncDisposable
 {
     private const string ServerUrlSetting = "flowhub_server_url";
-    private const long WordPreviewWindowMilliseconds = 1_200;
-    private const long WordPreviewStepMilliseconds = 900;
-    private const long WordPreviewOverlapMilliseconds = 1_100;
-    private const long WordPreviewPollMilliseconds = 350;
+    private const long WordMinInitialMilliseconds = 450;
+    private const long WordMinDeltaMilliseconds = 240;
+    private const long WordMaxTailMilliseconds = 4_500;
+    private const long WordCommitKeepTailMilliseconds = 1_500;
+    private const long WordPollMilliseconds = 120;
     private const long BlockPreviewWindowMilliseconds = 3_200;
     private const long BlockPreviewStepMilliseconds = 2_200;
     private const long BlockPreviewOverlapMilliseconds = 1_800;
-    private const long BlockPreviewPollMilliseconds = 1_200;
-    private const long PreviewCorrectionIntervalMilliseconds = 8_000;
+    private const long BlockPreviewPollMilliseconds = 800;
+    private const long FinalFullWindowMilliseconds = 28_000;
+    private const long FinalTailSliceMilliseconds = 22_000;
     private readonly Action<string> _status;
     private readonly AudioCapture _audio;
     private readonly GroqTranscriber _transcriber = new(new HttpClient());
@@ -29,7 +31,9 @@ public sealed class FlowClient : IAsyncDisposable
     private readonly LocalOutbox _outbox = new();
     private readonly HttpClient _syncHttp = new();
     private readonly SemaphoreSlim _syncLock = new(1, 1);
+    private readonly SemaphoreSlim _whisperCacheLock = new(1, 1);
     private readonly Stopwatch _recordingWatch = new();
+    private LocalWhisperSession? _cachedWhisperSession;
     private LocalWhisperSession? _localWhisperSession;
     private Task<LocalWhisperSession>? _localSessionTask;
     private CancellationTokenSource? _localPreviewCancellation;
@@ -44,9 +48,10 @@ public sealed class FlowClient : IAsyncDisposable
     private string _activeCorrectionModel = GroqContextCorrector.Model;
     private long _localProcessedEndBytes;
     private long _localNextEndBytes;
-    private long _localLastCorrectionEndBytes;
+    private long _localTailStartByte;
+    private long _localLastWordSampleEndBytes;
+    private string _localCommittedText = string.Empty;
     private string _localRawTranscript = string.Empty;
-    private bool _localPreviewCorrectionUnavailable;
     private bool _isFinishing;
     private nint _pasteTargetWindow;
     private string? _lastTargetAppName;
@@ -121,7 +126,7 @@ public sealed class FlowClient : IAsyncDisposable
             throw new InvalidOperationException($"Falta el modelo Whisper «{_activeTranscriptionModel}». Descárgalo en Ajustes > Modelos locales.");
 
         _localSessionTask = _activeTranscriptionProvider == "whisper"
-            ? Task.Run(() => LocalWhisperTranscriber.OpenSession(_activeTranscriptionModel))
+            ? GetOrOpenLocalSessionAsync(_activeTranscriptionModel)
             : null;
 
         _recordingWatch.Restart();
@@ -137,9 +142,10 @@ public sealed class FlowClient : IAsyncDisposable
             {
                 _localProcessedEndBytes = 0;
                 _localNextEndBytes = 0;
-                _localLastCorrectionEndBytes = 0;
+                _localTailStartByte = 0;
+                _localLastWordSampleEndBytes = 0;
+                _localCommittedText = string.Empty;
                 _localRawTranscript = string.Empty;
-                _localPreviewCorrectionUnavailable = false;
                 _localPreviewCancellation = new CancellationTokenSource();
                 _localPreviewTask = RunLocalPreviewAsync(_localPreviewCancellation.Token);
             }
@@ -173,13 +179,12 @@ public sealed class FlowClient : IAsyncDisposable
                     try { await _localPreviewTask; }
                     catch (OperationCanceledException) { }
                 }
-                await ProcessLocalChunksAsync(snapshot, flushRemaining: true, CancellationToken.None);
-                text = _localRawTranscript.Trim();
                 if (snapshot.TotalLengthBytes < 1_100)
                 {
                     _status("No se ha capturado audio suficiente.");
                     return null;
                 }
+                text = await TranscribeFinalLocalAsync(snapshot, CancellationToken.None);
                 _activeTranscriptionModel = $"whisper.net/{_localWhisperSession?.Model ?? _activeTranscriptionModel}";
             }
             else
@@ -217,7 +222,9 @@ public sealed class FlowClient : IAsyncDisposable
                 }
                 catch (Exception error) when (error is HttpRequestException or InvalidOperationException or JsonException or TaskCanceledException)
                 {
-                    _status("Ollama no está disponible; se insertará la transcripción local sin corregir.");
+                    _status(error.Message.Contains("404", StringComparison.Ordinal)
+                        ? $"Falta el modelo Ollama «{_activeCorrectionModel}» (descárgalo en Ajustes); se insertará la transcripción sin corregir."
+                        : "Ollama no está disponible; se insertará la transcripción local sin corregir.");
                 }
             }
             else
@@ -290,6 +297,36 @@ public sealed class FlowClient : IAsyncDisposable
         return new DictationCorrectionContext(_lastTargetAppName, dictionary, options, styles);
     }
 
+    public async Task PrewarmLocalWhisperAsync(string model)
+    {
+        if (!LocalWhisperTranscriber.IsModelInstalled(model)) return;
+        try { await GetOrOpenLocalSessionAsync(model); }
+        catch { }
+    }
+
+    private async Task<LocalWhisperSession> GetOrOpenLocalSessionAsync(string model)
+    {
+        await _whisperCacheLock.WaitAsync();
+        try
+        {
+            if (_cachedWhisperSession is not null &&
+                string.Equals(_cachedWhisperSession.Model, model, StringComparison.OrdinalIgnoreCase))
+            {
+                return _cachedWhisperSession;
+            }
+
+            _cachedWhisperSession?.Dispose();
+            _cachedWhisperSession = null;
+            var created = await Task.Run(() => LocalWhisperTranscriber.OpenSession(model));
+            _cachedWhisperSession = created;
+            return created;
+        }
+        finally
+        {
+            _whisperCacheLock.Release();
+        }
+    }
+
     private async Task<LocalWhisperSession?> EnsureLocalSessionAsync(CancellationToken cancellationToken)
     {
         if (_localWhisperSession is not null) return _localWhisperSession;
@@ -303,27 +340,112 @@ public sealed class FlowClient : IAsyncDisposable
         try
         {
             await EnsureLocalSessionAsync(cancellationToken);
-            var pollMs = _activePreviewMode == "block" ? BlockPreviewPollMilliseconds : WordPreviewPollMilliseconds;
+            if (_activePreviewMode == "block")
+            {
+                while (true)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(BlockPreviewPollMilliseconds), cancellationToken);
+                    await ProcessLocalBlocksAsync(_audio.GetSnapshot(0, 0), cancellationToken);
+                }
+            }
+
             while (true)
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(pollMs), cancellationToken);
-                await ProcessLocalChunksAsync(_audio.GetSnapshot(0, 0), flushRemaining: false, cancellationToken);
+                await ProcessLocalWordTailAsync(cancellationToken);
+                await Task.Delay(TimeSpan.FromMilliseconds(WordPollMilliseconds), cancellationToken);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
     }
 
-    private async Task ProcessLocalChunksAsync(AudioCaptureSnapshot snapshot, bool flushRemaining, CancellationToken cancellationToken)
+    private async Task ProcessLocalWordTailAsync(CancellationToken cancellationToken)
+    {
+        var session = await EnsureLocalSessionAsync(cancellationToken);
+        if (session is null) return;
+        await _localPreviewLock.WaitAsync(cancellationToken);
+        try
+        {
+            var probe = _audio.GetSnapshot(_localTailStartByte, null);
+            if (probe.TotalLengthBytes == 0) return;
+
+            var bytesPerSecond = Math.Max(probe.Format.AverageBytesPerSecond,
+                probe.Format.SampleRate * Math.Max(1, probe.Format.BlockAlign));
+            var blockAlign = Math.Max(1, probe.Format.BlockAlign);
+            long ToAlignedBytes(long milliseconds)
+            {
+                var bytes = (long)Math.Round(bytesPerSecond * milliseconds / 1_000d);
+                return Math.Max(blockAlign, bytes - bytes % blockAlign);
+            }
+
+            var minInitialBytes = ToAlignedBytes(WordMinInitialMilliseconds);
+            var minDeltaBytes = ToAlignedBytes(WordMinDeltaMilliseconds);
+            var maxTailBytes = ToAlignedBytes(WordMaxTailMilliseconds);
+            var keepTailBytes = ToAlignedBytes(WordCommitKeepTailMilliseconds);
+
+            var totalBytes = probe.TotalLengthBytes - probe.TotalLengthBytes % blockAlign;
+            var availableTailBytes = totalBytes - _localTailStartByte;
+            if (availableTailBytes < minInitialBytes) return;
+            if (_localLastWordSampleEndBytes > 0 && totalBytes - _localLastWordSampleEndBytes < minDeltaBytes) return;
+
+            var windowEndByte = Math.Min(totalBytes, _localTailStartByte + maxTailBytes);
+            windowEndByte -= windowEndByte % blockAlign;
+            if (windowEndByte <= _localTailStartByte) return;
+
+            var windowSlice = _audio.GetSnapshot(_localTailStartByte, windowEndByte);
+            var wav = AudioCapture.ToWhisperWave(windowSlice, 0, windowSlice.Raw.Length);
+            if (wav.Length <= 44) return;
+
+            var segments = await session.TranscribePreviewAsync(wav, cancellationToken);
+            _localLastWordSampleEndBytes = windowEndByte;
+
+            var tailText = string.Join(" ", segments.Select(segment => segment.Text)).Trim();
+            if (!string.IsNullOrWhiteSpace(tailText))
+            {
+                _localRawTranscript = CombineCommittedAndTail(_localCommittedText, tailText);
+                TranscriptPreviewChanged?.Invoke(_localRawTranscript);
+                _status("Transcripción local en curso…");
+            }
+
+            // Keep the active phrase tail <= ~4.5 s so AudioContextSize(256) stays fast and exact.
+            var processedTailBytes = windowEndByte - _localTailStartByte;
+            if (processedTailBytes >= maxTailBytes)
+            {
+                var windowDurationMs = processedTailBytes * 1_000d / bytesPerSecond;
+                var commitThresholdMs = Math.Max(1_000d, windowDurationMs - WordCommitKeepTailMilliseconds);
+                var commitSegments = segments
+                    .Where(segment => segment.End.TotalMilliseconds > 250 && segment.End.TotalMilliseconds <= commitThresholdMs)
+                    .ToList();
+
+                if (commitSegments.Count > 0)
+                {
+                    var committedChunk = string.Join(" ", commitSegments.Select(segment => segment.Text)).Trim();
+                    _localCommittedText = CombineCommittedAndTail(_localCommittedText, committedChunk);
+                    var commitAdvanceBytes = ToAlignedBytes((long)Math.Round(commitSegments[^1].End.TotalMilliseconds));
+                    _localTailStartByte = Math.Min(windowEndByte - keepTailBytes, _localTailStartByte + commitAdvanceBytes);
+                    _localTailStartByte -= _localTailStartByte % blockAlign;
+                }
+                else
+                {
+                    if (!string.IsNullOrWhiteSpace(tailText))
+                        _localCommittedText = CombineCommittedAndTail(_localCommittedText, tailText);
+                    _localTailStartByte = Math.Max(_localTailStartByte, windowEndByte - keepTailBytes);
+                    _localTailStartByte -= _localTailStartByte % blockAlign;
+                }
+            }
+        }
+        finally
+        {
+            _localPreviewLock.Release();
+        }
+    }
+
+    private async Task ProcessLocalBlocksAsync(AudioCaptureSnapshot snapshot, CancellationToken cancellationToken)
     {
         var session = await EnsureLocalSessionAsync(cancellationToken);
         if (session is null || snapshot.TotalLengthBytes == 0) return;
         await _localPreviewLock.WaitAsync(cancellationToken);
         try
         {
-            var isWordMode = _activePreviewMode != "block";
-            var windowMs = isWordMode ? WordPreviewWindowMilliseconds : BlockPreviewWindowMilliseconds;
-            var stepMs = isWordMode ? WordPreviewStepMilliseconds : BlockPreviewStepMilliseconds;
-            var overlapMs = isWordMode ? WordPreviewOverlapMilliseconds : BlockPreviewOverlapMilliseconds;
             var bytesPerSecond = Math.Max(snapshot.Format.AverageBytesPerSecond,
                 snapshot.Format.SampleRate * Math.Max(1, snapshot.Format.BlockAlign));
             var blockAlign = Math.Max(1, snapshot.Format.BlockAlign);
@@ -333,72 +455,95 @@ public sealed class FlowClient : IAsyncDisposable
                 return Math.Max(blockAlign, bytes - bytes % blockAlign);
             }
 
-            var firstWindowBytes = ToAlignedBytes(windowMs);
-            var stepBytes = ToAlignedBytes(stepMs);
-            var overlapBytes = ToAlignedBytes(overlapMs);
+            var firstWindowBytes = ToAlignedBytes(BlockPreviewWindowMilliseconds);
+            var stepBytes = ToAlignedBytes(BlockPreviewStepMilliseconds);
+            var overlapBytes = ToAlignedBytes(BlockPreviewOverlapMilliseconds);
             if (_localNextEndBytes == 0) _localNextEndBytes = firstWindowBytes;
 
             while (_localProcessedEndBytes < snapshot.TotalLengthBytes)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var totalBytes = snapshot.TotalLengthBytes - snapshot.TotalLengthBytes % blockAlign;
-                var hasFullWindow = totalBytes >= _localNextEndBytes;
-                if (!hasFullWindow && !flushRemaining) break;
+                if (totalBytes < _localNextEndBytes) break;
 
-                var endByte = hasFullWindow ? _localNextEndBytes : totalBytes;
+                var endByte = _localNextEndBytes;
                 if (endByte <= _localProcessedEndBytes) break;
                 var startByte = Math.Max(0, _localProcessedEndBytes - overlapBytes);
                 startByte -= startByte % blockAlign;
                 var window = _audio.GetSnapshot(startByte, endByte);
                 var wav = AudioCapture.ToWhisperWave(window, 0, window.Raw.Length);
-                Action<string>? onPartial = isWordMode && !flushRemaining
-                    ? partial =>
-                    {
-                        var live = MergeTranscriptChunks(_localRawTranscript, partial);
-                        if (!string.IsNullOrWhiteSpace(live))
-                            TranscriptPreviewChanged?.Invoke(live);
-                    }
-                    : null;
-                var chunkText = await session.TranscribeAsync(wav, cancellationToken, onPartial);
+                var segments = await session.TranscribePreviewAsync(wav, cancellationToken);
                 _localProcessedEndBytes = endByte;
                 _localNextEndBytes = endByte + stepBytes;
+                var chunkText = string.Join(" ", segments.Select(segment => segment.Text)).Trim();
                 if (!string.IsNullOrWhiteSpace(chunkText))
                 {
                     _localRawTranscript = MergeTranscriptChunks(_localRawTranscript, chunkText);
-                    var preview = _localRawTranscript;
-                    var correctionIntervalBytes = (long)Math.Round(bytesPerSecond * PreviewCorrectionIntervalMilliseconds / 1_000d);
-                    var shouldCorrectPreview = _localLastCorrectionEndBytes == 0 ||
-                                               endByte - _localLastCorrectionEndBytes >= correctionIntervalBytes;
-                    if (_activeCorrectionProvider == "ollama" && !_localPreviewCorrectionUnavailable && shouldCorrectPreview)
-                    {
-                        var options = _activeCorrectionContext?.Options ?? new DictationCorrectionOptions();
-                        var correctionInput = DictationTextProcessor.PrepareForCorrection(preview, options);
-                        try
-                        {
-                            var corrected = await _localCorrector.TryCorrectAsync(
-                                correctionInput, _activeCorrectionContext, _activeCorrectionModel, cancellationToken);
-                            if (!string.IsNullOrWhiteSpace(corrected)) preview = corrected;
-                            _localLastCorrectionEndBytes = endByte;
-                        }
-                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-                        catch (Exception error) when (error is HttpRequestException or InvalidOperationException or JsonException or TaskCanceledException)
-                        {
-                            _localPreviewCorrectionUnavailable = true;
-                            _localLastCorrectionEndBytes = endByte;
-                            _status("Vista previa con Whisper local; Ollama no está disponible para corregirla.");
-                        }
-                    }
-                    TranscriptPreviewChanged?.Invoke(preview);
+                    TranscriptPreviewChanged?.Invoke(_localRawTranscript);
                     _status("Transcripción local en curso…");
                 }
-
-                if (!hasFullWindow) break;
             }
         }
         finally
         {
             _localPreviewLock.Release();
         }
+    }
+
+    private async Task<string> TranscribeFinalLocalAsync(AudioCaptureSnapshot snapshot, CancellationToken cancellationToken)
+    {
+        var session = await EnsureLocalSessionAsync(cancellationToken);
+        if (session is null || snapshot.TotalLengthBytes == 0) return _localRawTranscript.Trim();
+        await _localPreviewLock.WaitAsync(cancellationToken);
+        try
+        {
+            var bytesPerSecond = Math.Max(snapshot.Format.AverageBytesPerSecond,
+                snapshot.Format.SampleRate * Math.Max(1, snapshot.Format.BlockAlign));
+            var blockAlign = Math.Max(1, snapshot.Format.BlockAlign);
+            var totalBytes = snapshot.TotalLengthBytes - snapshot.TotalLengthBytes % blockAlign;
+            var sliceLimitBytes = (long)Math.Round(bytesPerSecond * FinalFullWindowMilliseconds / 1_000d);
+            sliceLimitBytes -= sliceLimitBytes % blockAlign;
+
+            if (totalBytes <= sliceLimitBytes)
+            {
+                var fullWav = AudioCapture.ToWhisperWave(snapshot, 0, checked((int)totalBytes));
+                var fullText = await session.TranscribeFinalAsync(fullWav, cancellationToken);
+                return string.IsNullOrWhiteSpace(fullText) ? _localRawTranscript.Trim() : fullText.Trim();
+            }
+
+            var sliceStepBytes = (long)Math.Round(bytesPerSecond * FinalTailSliceMilliseconds / 1_000d);
+            sliceStepBytes -= sliceStepBytes % blockAlign;
+            var overlapBytes = (long)Math.Round(bytesPerSecond * 1_500d / 1_000d);
+            overlapBytes -= overlapBytes % blockAlign;
+
+            var cursor = 0L;
+            var merged = string.Empty;
+            while (cursor < totalBytes)
+            {
+                var start = Math.Max(0, cursor - (cursor == 0 ? 0 : overlapBytes));
+                start -= start % blockAlign;
+                var end = Math.Min(totalBytes, cursor + sliceStepBytes);
+                end -= end % blockAlign;
+                var wav = AudioCapture.ToWhisperWave(snapshot, checked((int)start), checked((int)end));
+                var chunk = await session.TranscribeFinalAsync(wav, cancellationToken);
+                if (!string.IsNullOrWhiteSpace(chunk))
+                    merged = MergeTranscriptChunks(merged, chunk);
+                if (end >= totalBytes) break;
+                cursor = end;
+            }
+            return string.IsNullOrWhiteSpace(merged) ? _localRawTranscript.Trim() : merged.Trim();
+        }
+        finally
+        {
+            _localPreviewLock.Release();
+        }
+    }
+
+    private static string CombineCommittedAndTail(string committed, string tail)
+    {
+        if (string.IsNullOrWhiteSpace(committed)) return tail.Trim();
+        if (string.IsNullOrWhiteSpace(tail)) return committed.Trim();
+        return MergeTranscriptChunks(committed, tail);
     }
 
     private static string MergeTranscriptChunks(string existing, string incoming)
@@ -473,7 +618,6 @@ public sealed class FlowClient : IAsyncDisposable
             catch { }
             _localSessionTask = null;
         }
-        _localWhisperSession?.Dispose();
         _localWhisperSession = null;
     }
 
@@ -724,6 +868,9 @@ public sealed class FlowClient : IAsyncDisposable
             catch { }
         }
         await CleanupLocalSessionAsync();
+        _cachedWhisperSession?.Dispose();
+        _cachedWhisperSession = null;
+        _whisperCacheLock.Dispose();
         _audio.Dispose();
         _syncHttp.Dispose();
         _syncLock.Dispose();

@@ -330,7 +330,7 @@ public partial class RecordingIndicatorWindow : Window
         TranscriptPreviewText.Inlines.Add(new Run(text) { Foreground = brush });
         var animation = new DoubleAnimation(0.16, 1, new Duration(TimeSpan.FromMilliseconds(220)))
         {
-            BeginTime = TimeSpan.FromMilliseconds(animationIndex * 24),
+            BeginTime = TimeSpan.FromMilliseconds(animationIndex * 38),
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         };
         animation.Completed += (_, _) =>
