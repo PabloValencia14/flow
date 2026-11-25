@@ -8,19 +8,19 @@
         Background="Transparent">
 
     <!-- Outer Container with margin to eliminate shadow clipping -->
-    <Border Margin="16"
+    <Border Margin="12"
             Background="{DynamicResource BrushBgMain}"
             BorderBrush="{DynamicResource BrushBorder}"
             BorderThickness="1"
-            CornerRadius="16">
+            CornerRadius="0">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="22" ShadowDepth="4" Direction="270" Opacity="0.45" Color="#000000" />
+            <DropShadowEffect BlurRadius="18" ShadowDepth="3" Direction="270" Opacity="0.32" Color="#000000" />
         </Border.Effect>
 
         <Grid>
             <Grid.RowDefinitions>
                 <!-- Titlebar -->
-                <RowDefinition Height="48" />
+            <RowDefinition Height="52" />
                 <!-- Main Body -->
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
@@ -28,7 +28,7 @@
             <!-- Custom Chrome Titlebar (Draggable) -->
             <Border Grid.Row="0" Background="{DynamicResource BrushBgSidebar}"
                     BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1"
-                    CornerRadius="16,16,0,0"
+                    CornerRadius="0"
                     MouseDown="TitleBar_MouseDown">
                 <Grid Margin="16,0,10,0">
                     <Grid.ColumnDefinitions>
@@ -37,13 +37,14 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- Left: Brand Logo & Status Pill -->
+                    <!-- Left: Square mark, platform label, and live status -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Border Width="26" Height="26" CornerRadius="7" Background="{DynamicResource BrushBgCardHover}" Margin="0,0,10,0">
-                            <Path Width="13" Height="13" Stretch="Uniform" Fill="{DynamicResource BrushTextPrimary}"
+                        <Border Width="26" Height="26" Background="{DynamicResource BrushAccentPurple}" Margin="0,0,10,0">
+                            <Path Width="13" Height="13" Stretch="Uniform" Fill="{DynamicResource BrushOnAccent}"
                                   Data="{StaticResource IconFlowLogo}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
-                        <TextBlock Text="Flow" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBlock Text="FLOW" FontFamily="Consolas" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock Text="[WIN]" FontFamily="Consolas" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource BrushAccentPurple}" VerticalAlignment="Center" Margin="0,0,14,0" />
                         <TextBlock x:Name="HubStatusLabel" Text="Estado de Flow" MaxWidth="420" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" FontSize="12" Foreground="{DynamicResource BrushTextSecondary}" VerticalAlignment="Center" />
                     </StackPanel>
 
@@ -56,7 +57,7 @@
                         <Button x:Name="ThemeToggleBtn" Width="32" Height="30" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="ThemeToggleBtn_Click" ToolTip="Cambiar tema (Claro / Oscuro)" Margin="0,0,8,0">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="b" Background="Transparent" CornerRadius="6">
+                                    <Border x:Name="b" Background="Transparent" CornerRadius="0">
                                         <Path x:Name="ThemeIconPath" Width="14" Height="14" Stretch="Uniform" Stroke="{DynamicResource BrushTextSecondary}" StrokeThickness="1.6" Data="{StaticResource IconSun}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
                                     <ControlTemplate.Triggers>
@@ -70,7 +71,7 @@
                         <Button Width="32" Height="30" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="MinimizeButton_Click" ToolTip="Minimizar">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="b" Background="Transparent" CornerRadius="6">
+                                    <Border x:Name="b" Background="Transparent" CornerRadius="0">
                                         <Path Width="10" Height="2" Stretch="Uniform" Fill="{DynamicResource BrushTextSecondary}" Data="{StaticResource IconMinus}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
                                     <ControlTemplate.Triggers>
@@ -84,7 +85,7 @@
                         <Button Width="32" Height="30" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="CloseButton_Click" ToolTip="Minimizar al fondo (la barra flotante seguirá activa)">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="b" Background="Transparent" CornerRadius="6">
+                                    <Border x:Name="b" Background="Transparent" CornerRadius="0">
                                         <Path Width="10" Height="10" Stretch="Uniform" Stroke="{DynamicResource BrushTextSecondary}" StrokeThickness="1.6" Data="{StaticResource IconClose}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
                                     <ControlTemplate.Triggers>
@@ -109,8 +110,8 @@
                 <!-- Left Sidebar (Wispr Flow Hub Layout) -->
                 <Border Grid.Column="0" Background="{DynamicResource BrushBgSidebar}"
                         BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,1,0"
-                        CornerRadius="0,0,0,16">
-                    <Grid Margin="12,16,12,14">
+                        CornerRadius="0">
+                    <Grid Margin="14,18,14,16">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*" />
                             <RowDefinition Height="Auto" />
@@ -120,11 +121,12 @@
                         <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
                             <StackPanel>
                                 <!-- Category 1: DICTADO & NOTAS -->
-                                <TextBlock Text="DICTADO &amp; NOTAS" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="10,0,0,8" />
+                                <TextBlock Text="[01] DICTADO" FontFamily="Consolas" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="10,0,0,8" />
 
                                 <RadioButton x:Name="NavNotes" Style="{StaticResource WisprNavTab}" IsChecked="True" Checked="NavTab_Checked">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Width="14" Height="14" Stretch="Uniform" Fill="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" Data="{StaticResource IconNotes}" Margin="0,0,10,0" />
+                                        <TextBlock Text="01" Width="19" FontFamily="Consolas" FontSize="10" Foreground="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" VerticalAlignment="Center" Margin="0,0,6,0" />
                                         <TextBlock Text="Dictados" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </RadioButton>
@@ -132,6 +134,7 @@
                                 <RadioButton x:Name="NavMeetings" Style="{StaticResource WisprNavTab}" Checked="NavTab_Checked">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Width="14" Height="14" Stretch="Uniform" Fill="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" Data="{StaticResource IconInsights}" Margin="0,0,10,0" />
+                                        <TextBlock Text="02" Width="19" FontFamily="Consolas" FontSize="10" Foreground="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" VerticalAlignment="Center" Margin="0,0,6,0" />
                                         <TextBlock Text="Reuniones" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </RadioButton>
@@ -139,16 +142,18 @@
                                 <RadioButton x:Name="NavSnippets" Style="{StaticResource WisprNavTab}" Checked="NavTab_Checked">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Width="14" Height="14" Stretch="Uniform" Fill="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" Data="{StaticResource IconSnippet}" Margin="0,0,10,0" />
+                                        <TextBlock Text="03" Width="19" FontFamily="Consolas" FontSize="10" Foreground="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" VerticalAlignment="Center" Margin="0,0,6,0" />
                                         <TextBlock Text="Plantillas" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </RadioButton>
 
                                 <!-- Category 2: PERSONALIZACIÓN -->
-                                <TextBlock Text="PERSONALIZACIÓN" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="10,18,0,8" />
+                                <TextBlock Text="[02] PERSONALIZAR" FontFamily="Consolas" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="10,18,0,8" />
 
                                 <RadioButton x:Name="NavDictionary" Style="{StaticResource WisprNavTab}" Checked="NavTab_Checked">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Width="14" Height="14" Stretch="Uniform" Fill="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" Data="{StaticResource IconDictionary}" Margin="0,0,10,0" />
+                                        <TextBlock Text="04" Width="19" FontFamily="Consolas" FontSize="10" Foreground="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" VerticalAlignment="Center" Margin="0,0,6,0" />
                                         <TextBlock Text="Diccionario" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </RadioButton>
@@ -156,6 +161,7 @@
                                 <RadioButton x:Name="NavStyles" Style="{StaticResource WisprNavTab}" Checked="NavTab_Checked">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Width="14" Height="14" Stretch="Uniform" Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" StrokeThickness="1.8" Data="{StaticResource IconWand}" Margin="0,0,10,0" />
+                                        <TextBlock Text="05" Width="19" FontFamily="Consolas" FontSize="10" Foreground="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" VerticalAlignment="Center" Margin="0,0,6,0" />
                                         <TextBlock Text="Estilos" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </RadioButton>
@@ -163,16 +169,18 @@
                                 <RadioButton x:Name="NavInsights" Style="{StaticResource WisprNavTab}" Checked="NavTab_Checked">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Width="14" Height="14" Stretch="Uniform" Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" StrokeThickness="1.8" Data="{StaticResource IconInsights}" Margin="0,0,10,0" />
+                                        <TextBlock Text="06" Width="19" FontFamily="Consolas" FontSize="10" Foreground="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" VerticalAlignment="Center" Margin="0,0,6,0" />
                                         <TextBlock Text="Actividad" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </RadioButton>
 
                                 <!-- Category 3: SISTEMA -->
-                                <TextBlock Text="SISTEMA" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="10,18,0,8" />
+                                <TextBlock Text="[03] SISTEMA" FontFamily="Consolas" FontSize="9.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="10,18,0,8" />
 
                                 <RadioButton x:Name="NavSettings" Style="{StaticResource WisprNavTab}" Checked="NavTab_Checked">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Width="14" Height="14" Stretch="Uniform" Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" StrokeThickness="1.8" Data="{StaticResource IconSettings}" Margin="0,0,10,0" />
+                                        <TextBlock Text="07" Width="19" FontFamily="Consolas" FontSize="10" Foreground="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" VerticalAlignment="Center" Margin="0,0,6,0" />
                                         <TextBlock Text="Ajustes" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </RadioButton>
@@ -185,7 +193,7 @@
                 <Grid Grid.Column="1" Background="{DynamicResource BrushBgMain}">
 
                     <!-- VIEW 1: NOTES & HISTORY -->
-                    <Grid x:Name="ViewNotes" Margin="30,24,30,24" Visibility="Visible">
+                    <Grid x:Name="ViewNotes" Margin="28,24,28,24" Visibility="Visible">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -720,7 +728,7 @@
                                             <TextBlock Text="Atajo Global de Dictado" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" />
                                             <TextBlock Text="Mantén pulsado para dictar; toca 2 veces para dejarlo activo y vuelve a tocar 2 veces para terminar y pegar." FontSize="12.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,3,0,0" />
                                         </StackPanel>
-                                        <Border Grid.Column="1" Background="{DynamicResource BrushBgCardHover}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="8" Padding="12,6">
+                    <Border Grid.Column="1" Background="{DynamicResource BrushBgCardHover}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="0" Padding="12,6">
                                             <TextBlock Text="Ctrl + Win" Foreground="{DynamicResource BrushAccentPurple}" FontWeight="Bold" FontSize="12.5" />
                                         </Border>
                                     </Grid>

@@ -42,21 +42,25 @@ public static class ThemeManager
         var app = Application.Current;
         if (app == null) return;
 
-        // Monochrome palette. Neutral grays keep hierarchy and contrast without
-        // introducing an accent hue into the interface.
-        var bgMain = isLight ? Color.FromRgb(247, 247, 247) : Color.FromRgb(11, 11, 11);
-        var bgSidebar = isLight ? Color.FromRgb(238, 238, 238) : Color.FromRgb(17, 17, 17);
-        var bgCard = isLight ? Color.FromRgb(255, 255, 255) : Color.FromRgb(24, 24, 24);
-        var bgCardHover = isLight ? Color.FromRgb(232, 232, 232) : Color.FromRgb(36, 36, 36);
-        var bgInput = isLight ? Color.FromRgb(255, 255, 255) : Color.FromRgb(18, 18, 18);
-        var border = isLight ? Color.FromRgb(216, 216, 216) : Color.FromRgb(43, 43, 43);
-        var borderHover = isLight ? Color.FromRgb(184, 184, 184) : Color.FromRgb(72, 72, 72);
-        var textPrimary = isLight ? Color.FromRgb(17, 17, 17) : Color.FromRgb(245, 245, 245);
-        var textSecondary = isLight ? Color.FromRgb(74, 74, 74) : Color.FromRgb(181, 181, 181);
-        var textMuted = isLight ? Color.FromRgb(102, 102, 102) : Color.FromRgb(146, 146, 146);
-        var accent = isLight ? Color.FromRgb(17, 17, 17) : Color.FromRgb(245, 245, 245);
-        var accentSoft = isLight ? Color.FromRgb(64, 64, 64) : Color.FromRgb(214, 214, 214);
-        var onAccent = isLight ? Color.FromRgb(255, 255, 255) : Color.FromRgb(11, 11, 11);
+        // Evergreen surfaces keep the interface calm; each operational state has
+        // its own color so recording, completion, warnings, and sync are distinct.
+        var bgMain = isLight ? Color.FromRgb(240, 244, 235) : Color.FromRgb(18, 25, 22);
+        var bgSidebar = isLight ? Color.FromRgb(221, 233, 219) : Color.FromRgb(27, 39, 32);
+        var bgCard = isLight ? Color.FromRgb(249, 251, 246) : Color.FromRgb(32, 46, 37);
+        var bgCardHover = isLight ? Color.FromRgb(229, 239, 222) : Color.FromRgb(43, 59, 48);
+        var bgInput = isLight ? Color.FromRgb(251, 252, 248) : Color.FromRgb(23, 31, 26);
+        var border = isLight ? Color.FromRgb(193, 210, 190) : Color.FromRgb(60, 80, 65);
+        var borderHover = isLight ? Color.FromRgb(119, 150, 120) : Color.FromRgb(98, 122, 101);
+        var textPrimary = isLight ? Color.FromRgb(30, 48, 36) : Color.FromRgb(241, 244, 232);
+        var textSecondary = isLight ? Color.FromRgb(73, 94, 77) : Color.FromRgb(193, 202, 187);
+        var textMuted = isLight ? Color.FromRgb(104, 125, 108) : Color.FromRgb(145, 160, 145);
+        var accent = isLight ? Color.FromRgb(42, 115, 72) : Color.FromRgb(185, 233, 87);
+        var accentSoft = isLight ? Color.FromRgb(177, 214, 179) : Color.FromRgb(89, 111, 56);
+        var accentIndigo = isLight ? Color.FromRgb(53, 101, 184) : Color.FromRgb(128, 170, 255);
+        var accentRecording = isLight ? Color.FromRgb(196, 68, 58) : Color.FromRgb(255, 116, 100);
+        var accentSuccess = isLight ? Color.FromRgb(34, 122, 73) : Color.FromRgb(120, 217, 157);
+        var accentWarning = isLight ? Color.FromRgb(159, 98, 15) : Color.FromRgb(240, 190, 89);
+        var onAccent = isLight ? Color.FromRgb(255, 255, 255) : Color.FromRgb(24, 33, 15);
 
         // Update application level
         SetResource(app.Resources, "BrushBgMain", new SolidColorBrush(bgMain));
@@ -71,12 +75,13 @@ public static class ThemeManager
         SetResource(app.Resources, "BrushTextMuted", new SolidColorBrush(textMuted));
         SetResource(app.Resources, "BrushAccentPurple", new SolidColorBrush(accent));
         SetResource(app.Resources, "BrushAccentPurpleDark", new SolidColorBrush(accentSoft));
-        SetResource(app.Resources, "BrushAccentRecording", new SolidColorBrush(accent));
-        SetResource(app.Resources, "BrushAccentSuccess", new SolidColorBrush(accent));
-        SetResource(app.Resources, "BrushAccentWarning", new SolidColorBrush(accentSoft));
+        SetResource(app.Resources, "BrushAccentIndigo", new SolidColorBrush(accentIndigo));
+        SetResource(app.Resources, "BrushAccentRecording", new SolidColorBrush(accentRecording));
+        SetResource(app.Resources, "BrushAccentSuccess", new SolidColorBrush(accentSuccess));
+        SetResource(app.Resources, "BrushAccentWarning", new SolidColorBrush(accentWarning));
         SetResource(app.Resources, "BrushOnAccent", new SolidColorBrush(onAccent));
         SetResource(app.Resources, "BrushWisprGradient", new SolidColorBrush(accent));
-        SetResource(app.Resources, "BrushFlowPillBg", new SolidColorBrush(isLight ? Color.FromRgb(255, 255, 255) : Color.FromRgb(21, 21, 21)));
+        SetResource(app.Resources, "BrushFlowPillBg", new SolidColorBrush(bgCard));
 
         // Also update each open window's resources in case of local overrides
         foreach (Window win in app.Windows)
@@ -93,12 +98,13 @@ public static class ThemeManager
             SetResource(win.Resources, "BrushTextMuted", new SolidColorBrush(textMuted));
             SetResource(win.Resources, "BrushAccentPurple", new SolidColorBrush(accent));
             SetResource(win.Resources, "BrushAccentPurpleDark", new SolidColorBrush(accentSoft));
-            SetResource(win.Resources, "BrushAccentRecording", new SolidColorBrush(accent));
-            SetResource(win.Resources, "BrushAccentSuccess", new SolidColorBrush(accent));
-            SetResource(win.Resources, "BrushAccentWarning", new SolidColorBrush(accentSoft));
+            SetResource(win.Resources, "BrushAccentIndigo", new SolidColorBrush(accentIndigo));
+            SetResource(win.Resources, "BrushAccentRecording", new SolidColorBrush(accentRecording));
+            SetResource(win.Resources, "BrushAccentSuccess", new SolidColorBrush(accentSuccess));
+            SetResource(win.Resources, "BrushAccentWarning", new SolidColorBrush(accentWarning));
             SetResource(win.Resources, "BrushOnAccent", new SolidColorBrush(onAccent));
             SetResource(win.Resources, "BrushWisprGradient", new SolidColorBrush(accent));
-            SetResource(win.Resources, "BrushFlowPillBg", new SolidColorBrush(isLight ? Color.FromRgb(255, 255, 255) : Color.FromRgb(21, 21, 21)));
+            SetResource(win.Resources, "BrushFlowPillBg", new SolidColorBrush(bgCard));
         }
     }
 
