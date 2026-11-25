@@ -31,7 +31,7 @@
                 </TransformGroup>
             </Border.RenderTransform>
             <Border.Effect>
-                <DropShadowEffect BlurRadius="24" ShadowDepth="3" Direction="270" Opacity="0.38" Color="#000000" />
+                <DropShadowEffect x:Name="PillShadow" BlurRadius="24" ShadowDepth="3" Direction="270" Opacity="0.38" Color="#000000" />
             </Border.Effect>
 
             <Grid VerticalAlignment="Center">
@@ -77,8 +77,6 @@
                 <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal"
                             HorizontalAlignment="Center" VerticalAlignment="Center">
                     <local:VoiceSignal x:Name="WaveBarsContainer" Width="224" Height="30"
-                                       SignalColor="{StaticResource ColorAccentPurple}"
-                                       TrailColor="{StaticResource ColorAccentSuccess}"
                                        ClipToBounds="True" VerticalAlignment="Center" Margin="0,0,4,0" />
                     <TextBlock x:Name="DurationLabel" Text="0:00" Foreground="{DynamicResource BrushIslandPending}" FontSize="11"
                                FontFamily="Consolas" VerticalAlignment="Center" />

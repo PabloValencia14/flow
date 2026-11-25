@@ -28,6 +28,8 @@ public sealed class VoiceSignal : FrameworkElement
 
     public Color SignalColor { get; set; } = Color.FromRgb(185, 233, 87);
     public Color TrailColor { get; set; } = Color.FromRgb(120, 217, 157);
+    public Color PeakColor { get; set; } = Colors.White;
+    public bool IsLightTheme { get; private set; }
 
     public VoiceSignal()
     {
@@ -151,18 +153,43 @@ public sealed class VoiceSignal : FrameworkElement
         }
     }
 
+    public void ApplyTheme(bool isLight)
+    {
+        IsLightTheme = isLight;
+        if (isLight)
+        {
+            SignalColor = Color.FromRgb(42, 115, 72);
+            TrailColor = Color.FromRgb(85, 153, 111);
+            PeakColor = Color.FromRgb(20, 59, 36);
+        }
+        else
+        {
+            SignalColor = Color.FromRgb(185, 233, 87);
+            TrailColor = Color.FromRgb(120, 217, 157);
+            PeakColor = Colors.White;
+        }
+        BuildPalette();
+        InvalidateVisual();
+    }
+
     private void BuildPalette()
     {
+        var coreMinOpacity = IsLightTheme ? 0.30 : 0.18;
+        var trailMinOpacity = IsLightTheme ? 0.18 : 0.10;
+        var haloMaxAlpha = IsLightTheme ? 48.0 : 100.0;
         for (var i = 0; i < ShadeCount; i++)
         {
             var t = i / (double)(ShadeCount - 1);
-            _cores[i] = Freeze(new SolidColorBrush(Mix(SignalColor, Colors.White, t * t * 0.86))
+            _cores[i] = Freeze(new SolidColorBrush(Mix(SignalColor, PeakColor, t * t * 0.86))
             {
-                Opacity = 0.18 + t * 0.82
+                Opacity = coreMinOpacity + t * (1.0 - coreMinOpacity)
             });
-            _trails[i] = Freeze(new SolidColorBrush(TrailColor) { Opacity = 0.10 + t * 0.8 });
+            _trails[i] = Freeze(new SolidColorBrush(TrailColor)
+            {
+                Opacity = trailMinOpacity + t * (0.90 - trailMinOpacity)
+            });
             _halos[i] = Freeze(new RadialGradientBrush(
-                Color.FromArgb((byte)(t * 100), SignalColor.R, SignalColor.G, SignalColor.B),
+                Color.FromArgb((byte)(t * haloMaxAlpha), SignalColor.R, SignalColor.G, SignalColor.B),
                 Color.FromArgb(0, SignalColor.R, SignalColor.G, SignalColor.B)));
         }
     }

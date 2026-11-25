@@ -21,6 +21,7 @@ public partial class RecordingIndicatorWindow : Window
     private string _lastPreviewText = string.Empty;
     private int _visualGeneration;
     private volatile bool _acceptAudioLevels;
+    private string _indicatorState = "idle";
 
     public event Action? CancelRequested;
     public event Action? FinishRequested;
@@ -31,14 +32,48 @@ public partial class RecordingIndicatorWindow : Window
         _durationTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         _durationTimer.Tick += (_, _) => UpdateTimer();
         SourceInitialized += OnSourceInitialized;
-        Closed += (_, _) => StopVisuals();
+        ThemeManager.ThemeChanged += OnThemeChanged;
+        Closed += (_, _) =>
+        {
+            ThemeManager.ThemeChanged -= OnThemeChanged;
+            StopVisuals();
+        };
+        ApplyTheme(ThemeManager.IsLightActive);
         PositionBottomCenter();
+    }
+
+    private void OnThemeChanged(AppTheme _, bool isLight)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(() => ApplyTheme(isLight));
+            return;
+        }
+        ApplyTheme(isLight);
+    }
+
+    public void ApplyTheme(bool isLight)
+    {
+        PillShadow.Opacity = isLight ? 0.18 : 0.38;
+        WaveBarsContainer.ApplyTheme(isLight);
+        var indicatorBrushKey = _indicatorState switch
+        {
+            "processing" => "BrushAccentWarning",
+            "success" => "BrushAccentSuccess",
+            _ => "BrushIslandInk"
+        };
+        var indicatorBrush = (SolidColorBrush)FindResource(indicatorBrushKey);
+        PulseDot.Fill = indicatorBrush;
+        PulseRing.Fill = indicatorBrush;
+        if (IsVisible && _lastPreviewText.Length > 0)
+            RenderTranscriptPreview(_lastPreviewText, _lastPreviewText, settled: _indicatorState == "success");
     }
 
     public void ShowRecording(bool showTranscriptPreview = false)
     {
         ++_visualGeneration;
         StopVisuals();
+        _indicatorState = "recording";
         PillBorder.BeginAnimation(FrameworkElement.WidthProperty, null);
         PillScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
         PillScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
@@ -59,8 +94,7 @@ public partial class RecordingIndicatorWindow : Window
         WaveBarsContainer.Visibility = Visibility.Visible;
         WaveBarsContainer.Opacity = 1;
         WaveBarsContainer.Width = 224;
-        PulseDot.Fill = (SolidColorBrush)FindResource("BrushIslandInk");
-        PulseRing.Fill = (SolidColorBrush)FindResource("BrushIslandInk");
+        ApplyTheme(ThemeManager.IsLightActive);
 
         PositionBottomCenter();
         AnimateIn();
@@ -97,6 +131,7 @@ public partial class RecordingIndicatorWindow : Window
 
     public void ShowProcessing(bool localTranscription = false)
     {
+        _indicatorState = "processing";
         _acceptAudioLevels = false;
         _durationTimer.Stop();
         DurationLabel.Text = localTranscription ? "Procesando" : "Transcribiendo";
@@ -109,6 +144,7 @@ public partial class RecordingIndicatorWindow : Window
     public async Task ShowSuccessAsync()
     {
         var generation = _visualGeneration;
+        _indicatorState = "success";
         StopVisuals();
         _showTranscriptPreview = false;
         if (!IsVisible) return;

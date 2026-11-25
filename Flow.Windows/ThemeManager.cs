@@ -61,6 +61,11 @@ public static class ThemeManager
         var accentSuccess = isLight ? Color.FromRgb(34, 122, 73) : Color.FromRgb(120, 217, 157);
         var accentWarning = isLight ? Color.FromRgb(159, 98, 15) : Color.FromRgb(240, 190, 89);
         var onAccent = isLight ? Color.FromRgb(255, 255, 255) : Color.FromRgb(24, 33, 15);
+        var islandBg = isLight ? Color.FromRgb(249, 251, 246) : Color.FromRgb(16, 16, 18);
+        var islandBorder = isLight ? Color.FromRgb(184, 203, 181) : Color.FromRgb(43, 43, 47);
+        var islandInk = isLight ? Color.FromRgb(30, 48, 36) : Color.FromRgb(242, 242, 244);
+        var islandText = isLight ? Color.FromRgb(30, 48, 36) : Color.FromRgb(237, 237, 238);
+        var islandPending = isLight ? Color.FromRgb(100, 122, 105) : Color.FromRgb(140, 140, 144);
 
         // Update application level
         SetResource(app.Resources, "BrushBgMain", new SolidColorBrush(bgMain));
@@ -80,6 +85,11 @@ public static class ThemeManager
         SetResource(app.Resources, "BrushAccentSuccess", new SolidColorBrush(accentSuccess));
         SetResource(app.Resources, "BrushAccentWarning", new SolidColorBrush(accentWarning));
         SetResource(app.Resources, "BrushOnAccent", new SolidColorBrush(onAccent));
+        SetResource(app.Resources, "BrushIslandBg", new SolidColorBrush(islandBg));
+        SetResource(app.Resources, "BrushIslandBorder", new SolidColorBrush(islandBorder));
+        SetResource(app.Resources, "BrushIslandInk", new SolidColorBrush(islandInk));
+        SetResource(app.Resources, "BrushIslandText", new SolidColorBrush(islandText));
+        SetResource(app.Resources, "BrushIslandPending", new SolidColorBrush(islandPending));
         SetResource(app.Resources, "BrushWisprGradient", new SolidColorBrush(accent));
         SetResource(app.Resources, "BrushFlowPillBg", new SolidColorBrush(bgCard));
 
@@ -103,6 +113,11 @@ public static class ThemeManager
             SetResource(win.Resources, "BrushAccentSuccess", new SolidColorBrush(accentSuccess));
             SetResource(win.Resources, "BrushAccentWarning", new SolidColorBrush(accentWarning));
             SetResource(win.Resources, "BrushOnAccent", new SolidColorBrush(onAccent));
+            SetResource(win.Resources, "BrushIslandBg", new SolidColorBrush(islandBg));
+            SetResource(win.Resources, "BrushIslandBorder", new SolidColorBrush(islandBorder));
+            SetResource(win.Resources, "BrushIslandInk", new SolidColorBrush(islandInk));
+            SetResource(win.Resources, "BrushIslandText", new SolidColorBrush(islandText));
+            SetResource(win.Resources, "BrushIslandPending", new SolidColorBrush(islandPending));
             SetResource(win.Resources, "BrushWisprGradient", new SolidColorBrush(accent));
             SetResource(win.Resources, "BrushFlowPillBg", new SolidColorBrush(bgCard));
         }

@@ -36,11 +36,18 @@ colors:
   warning-dark: "#F0BE59"
   on-accent-light: "#FFFFFF"
   on-accent-dark: "#18210F"
-  island-bg: "#101012"
-  island-border: "#2B2B2F"
-  island-ink: "#F2F2F4"
-  island-text: "#EDEDEE"
-  island-pending: "#8C8C90"
+  island-bg-light: "#F9FBF6"
+  island-bg-dark: "#101012"
+  island-border-light: "#B8CBB5"
+  island-border-dark: "#2B2B2F"
+  island-ink-light: "#1E3024"
+  island-ink-dark: "#F2F2F4"
+  island-text-light: "#1E3024"
+  island-text-dark: "#EDEDEE"
+  island-pending-light: "#647A69"
+  island-pending-dark: "#8C8C90"
+  island-signal-peak-light: "#143B24"
+  island-signal-peak-dark: "#FFFFFF"
 typography:
   title:
     fontSize: "22px"
@@ -104,8 +111,8 @@ components:
     textColor: "{colors.text-primary-dark}"
     rounded: "{rounded.square}"
   island:
-    backgroundColor: "{colors.island-bg}"
-    textColor: "{colors.island-text}"
+    backgroundColor: "{colors.island-bg-dark}"
+    textColor: "{colors.island-text-dark}"
     rounded: "{rounded.island}"
     padding: "9px 12px"
     width: "344px"
@@ -119,12 +126,12 @@ components:
 
 Flow para Windows organiza el dictado, el historial y los ajustes en módulos rectangulares, con superficies verdes y bordes visibles. El texto describe acciones y estados; los índices ASCII ayudan a localizar funciones sin sustituir sus nombres.
 
-El dictado global es la prioridad de esta superficie. La cápsula negra de grabación permanece sobre la aplicación activa sin activarla: muestra dos hebras luminosas de partículas en lima y verde que responden al volumen, duración y transcripción debajo cuando está disponible. Su silueta redondeada es una excepción explícita a la retícula cuadrada.
+El dictado global es la prioridad de esta superficie. La cápsula de grabación permanece sobre la aplicación activa sin activarla y sigue el tema activo (claro u oscuro): muestra dos hebras de partículas en verde o lima que responden al volumen, duración y transcripción debajo cuando está disponible. Su silueta redondeada es una excepción explícita a la retícula cuadrada.
 
 **Key Characteristics:**
 - Retícula rectangular con bordes finos y selección de color sólido.
 - Segoe UI para lectura de interfaz; Consolas para índices y duración. Partículas de luz dibujadas por WPF.
-- Dos temas operativos; cápsula negra independiente del tema.
+- Dos temas operativos coherentes en la ventana principal y en la cápsula flotante.
 - Copy funcional en castellano, sin lemas.
 
 El alcance documentado es la interfaz WPF de Windows. Fuentes: Flow.Windows/FlowStyles.xaml, ThemeManager.cs, MainWindow.xaml, RecordingIndicatorWindow.xaml, su code-behind y VoiceSignal.cs; MainWindow.xaml.cs conecta nivel de audio, texto y ciclo de dictado. PRODUCT.md y el contrato de superficie aportan las decisiones confirmadas. La captura del usuario es una referencia de forma y señal, no una fuente de medidas del programa. La secuencia de revisión en .impeccable/review/recording-motion.mp4 se capturó del componente WPF real con niveles de audio y textos simulados.
@@ -158,10 +165,10 @@ El tema oscuro combina verdes profundos y lima; el claro usa verdes pálidos y u
 - **text-primary-dark / text-primary-light:** texto principal.
 - **text-secondary-dark / text-secondary-light:** explicaciones y navegación en reposo.
 - **text-muted-dark / text-muted-light:** metadatos.
-- **island-bg / island-border:** negro y borde fijo de la cápsula; ThemeManager no los reemplaza.
-- **island-ink:** controles de la cápsula.
-- **island-text / island-pending:** texto estable y última palabra pendiente; pending también se usa en duración y procesamiento.
-- **accent-dark / success-dark:** los tonos lima y verde de las dos hebras del visualizador; permanecen fijos sobre el fondo negro de la cápsula en ambos temas.
+- **island-bg-dark / island-bg-light y island-border-dark / island-border-light:** fondo y borde de la cápsula en oscuro y claro; ThemeManager los actualiza al cambiar de tema.
+- **island-ink-dark / island-ink-light:** controles de la cápsula.
+- **island-text-dark / island-text-light y island-pending-dark / island-pending-light:** texto estable y última palabra pendiente; pending también se usa en duración y procesamiento.
+- **accent / success y island-signal-peak:** en oscuro las partículas brillan en lima/verde hacia blanco sobre fondo negro; en claro usan verde esmeralda y salvia hacia verde bosque profundo sobre fondo claro para conservar contraste.
 
 **The Operational Color Rule.** Reserva accent para acción y selección; recording, sync, success y warning distinguen estados operativos, con texto que explicita su significado.
 
@@ -198,8 +205,8 @@ Los módulos internos son planos: fondos tonales y bordes de 1 separan áreas. H
 ### Shadow Vocabulary
 
 - **Marco principal:** DropShadowEffect negro, BlurRadius 18, ShadowDepth 3, Direction 270 y Opacity 0.32.
-- **Cápsula:** DropShadowEffect negro, BlurRadius 24, ShadowDepth 3, Direction 270 y Opacity 0.38.
-- **Señal:** halos radiales de lima alrededor de las partículas más brillantes, dibujados en el mismo visual nativo, con radio 2.3 veces el tamaño de la partícula.
+- **Cápsula:** DropShadowEffect negro, BlurRadius 24, ShadowDepth 3, Direction 270 y Opacity 0.38 en tema oscuro (0.18 en tema claro).
+- **Señal:** halos radiales alrededor de las partículas más intensas, dibujados en el mismo visual nativo, con radio 2.3 veces el tamaño de la partícula.
 
 El sidecar traduce estas sombras a CSS para muestras del panel; CSS y WPF no garantizan rasterización idéntica. La entrada de cápsula anima escala horizontal 0.52 a 1 en 350 ms con BackEase, escala vertical y desplazamiento en 300 ms, y opacidad en 180 ms. Al recibir la primera transcripción se expande verticalmente en 240 ms. Solo los términos nuevos o modificados se revelan con opacidad en 220 ms, con un desfase máximo de 120 ms. La salida dura 190 ms y el pulso cuadrado alterna escala y opacidad en 800 ms con autorreversa. Se respeta ClientAreaAnimation de Windows y las animaciones continuas se detienen al ocultar, cancelar o finalizar.
 
@@ -211,7 +218,7 @@ El marco, módulos, campos, botones, filtros y navegación tienen esquinas cuadr
 
 ## Components
 
-Los componentes del frontmatter muestran la asignación oscura por defecto; en tema claro se usa el token homónimo light. La cápsula conserva sus tokens island en ambos temas. Los ejemplos HTML/CSS del sidecar son traducciones autónomas para el panel: su foco de navegador no declara una implementación nueva de foco en WPF.
+Los componentes del frontmatter muestran la asignación oscura por defecto; en tema claro se usa el token homónimo light (incluida la cápsula de grabación). Los ejemplos HTML/CSS del sidecar son traducciones autónomas para el panel: su foco de navegador no declara una implementación nueva de foco en WPF.
 
 ### Buttons
 
@@ -249,7 +256,7 @@ Procesamiento detiene el reloj, reduce la señal a 124 DIP, aplana su amplitud y
 
 - Do conservar nombres funcionales y estados explícitos junto al color.
 - Do usar las parejas de recursos dark y light según el tema activo.
-- Do conservar la cápsula negra, su línea fina luminosa y el texto debajo.
+- Do conservar la cápsula flotante en su tema activo, su línea fina de partículas y el texto debajo.
 - Do permitir wrap y desplazamiento vertical para la previsualización larga.
 - Do mantener el dictado global disponible desde la aplicación activa.
 
@@ -258,5 +265,5 @@ Procesamiento detiene el reloj, reduce la señal a 124 DIP, aplana su amplitud y
 - Don't introducir lemas ni encabezados promocionales.
 - Don't convertir los filtros rectangulares en cápsulas por el nombre histórico de su estilo.
 - Don't sustituir la línea de puntos y destellos por barras gruesas o una onda sólida.
-- Don't aplicar el tema claro al fondo negro de la cápsula.
+- Don't mezclar partículas hacia blanco puro sobre el fondo claro de la cápsula, donde perderían contraste.
 - Don't presentar una rampa tonal del panel como un recurso de color implementado.

@@ -560,7 +560,7 @@
       {
         "name": "island",
         "value": "0 3px 24px rgb(0 0 0 / 0.38)",
-        "purpose": "Traducción de la sombra exterior WPF de la cápsula."
+        "purpose": "Traducción de la sombra exterior WPF de la cápsula en tema oscuro (0.18 en tema claro)."
       },
       {
         "name": "signal-halo",
@@ -661,11 +661,11 @@
   ],
   "narrative": {
     "northStar": "Retícula de dictado de Windows y cápsula de grabación",
-    "overview": "Flow para Windows organiza el dictado, el historial y los ajustes en módulos rectangulares, con superficies verdes y bordes visibles. El texto describe acciones y estados; los índices ASCII ayudan a localizar funciones sin sustituir sus nombres.\n\nEl dictado global es la prioridad de esta superficie. La cápsula negra de grabación permanece sobre la aplicación activa sin activarla: muestra dos hebras luminosas de partículas en lima y verde que responden al volumen, duración y transcripción debajo cuando está disponible. Su silueta redondeada es una excepción explícita a la retícula cuadrada.",
+    "overview": "Flow para Windows organiza el dictado, el historial y los ajustes en módulos rectangulares, con superficies verdes y bordes visibles. El texto describe acciones y estados; los índices ASCII ayudan a localizar funciones sin sustituir sus nombres.\n\nEl dictado global es la prioridad de esta superficie. La cápsula de grabación permanece sobre la aplicación activa sin activarla y sigue el tema activo (claro u oscuro): muestra dos hebras de partículas en verde o lima que responden al volumen, duración y transcripción debajo cuando está disponible. Su silueta redondeada es una excepción explícita a la retícula cuadrada.",
     "keyCharacteristics": [
       "Retícula rectangular con bordes finos y selección de color sólido.",
       "Segoe UI para lectura de interfaz; Consolas para índices y duración. Partículas de luz dibujadas por WPF.",
-      "Dos temas operativos; cápsula negra independiente del tema.",
+      "Dos temas operativos coherentes en la ventana principal y en la cápsula flotante.",
       "Copy funcional en castellano, sin lemas."
     ],
     "rules": [
@@ -688,7 +688,7 @@
     "dos": [
       "Do conservar nombres funcionales y estados explícitos junto al color.",
       "Do usar las parejas de recursos dark y light según el tema activo.",
-      "Do conservar la cápsula negra, su línea fina luminosa y el texto debajo.",
+      "Do conservar la cápsula flotante en su tema activo, su línea fina de partículas y el texto debajo.",
       "Do permitir wrap y desplazamiento vertical para la previsualización larga.",
       "Do mantener el dictado global disponible desde la aplicación activa."
     ],
@@ -696,7 +696,7 @@
       "Don't introducir lemas ni encabezados promocionales.",
       "Don't convertir los filtros rectangulares en cápsulas por el nombre histórico de su estilo.",
       "Don't sustituir la línea de puntos y destellos por barras gruesas o una onda sólida.",
-      "Don't aplicar el tema claro al fondo negro de la cápsula.",
+      "Don't mezclar partículas hacia blanco puro sobre el fondo claro de la cápsula, donde perderían contraste.",
       "Don't presentar una rampa tonal del panel como un recurso de color implementado."
     ]
   }
