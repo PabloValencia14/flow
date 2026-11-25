@@ -42,7 +42,6 @@
     <SolidColorBrush x:Key="BrushIslandInk" Color="#F2F2F4" />
     <SolidColorBrush x:Key="BrushIslandText" Color="#EDEDEE" />
     <SolidColorBrush x:Key="BrushIslandPending" Color="#8C8C90" />
-    <SolidColorBrush x:Key="BrushIslandGlow" Color="#F3F6FF" />
 
     <!-- Kept as resource keys for compatibility; both are intentionally solid. -->
     <SolidColorBrush x:Key="BrushWisprGradient" Color="#B9E957" />

@@ -32,7 +32,7 @@ On Windows, Flow can stay resident, start dictation with Ctrl+Win, and show reco
 
 - Interface copy is functional and avoids slogans, as requested by the user.
 - The Windows interface is being redesigned around square modules and restrained ASCII details, as requested by the user.
-- The recording bubble follows the user's Voice Island reference: a black capsule with a square stop control, a fine ASCII dot line whose spread and brightness follow audio level, a timer, and live words beneath it.
+- The recording bubble takes motion inspiration from Voice Island: an expandable black capsule, a square stop control, two strands of green and lime light particles responsive to audio level, a timer, and live words beneath it. The animation is rendered natively in WPF.
 
 ## Evidence on Hand
 

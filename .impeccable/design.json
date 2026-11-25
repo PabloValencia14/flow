@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-25T13:10:57.248080+00:00",
+  "generatedAt": "2026-11-25T13:26:44+00:00",
   "title": "Design System: Flow para Windows",
   "extensions": {
     "colorMeta": {
@@ -549,20 +549,6 @@
           "oklch(84% 0.0038 286.23)",
           "oklch(95% 0.0012 286.23)"
         ]
-      },
-      "island-glow": {
-        "role": "neutral",
-        "displayName": "island-glow",
-        "tonalRamp": [
-          "oklch(15% 0.0047 271.29)",
-          "oklch(26% 0.0081 271.29)",
-          "oklch(38% 0.0118 271.29)",
-          "oklch(49% 0.0124 271.29)",
-          "oklch(61% 0.0124 271.29)",
-          "oklch(72% 0.0124 271.29)",
-          "oklch(84% 0.0080 271.29)",
-          "oklch(95% 0.0025 271.29)"
-        ]
       }
     },
     "shadows": [
@@ -577,31 +563,41 @@
         "purpose": "Traducción de la sombra exterior WPF de la cápsula."
       },
       {
-        "name": "signal-glow",
-        "value": "0 0 6px rgb(243 246 255 / 0.82)",
-        "purpose": "Resplandor localizado de island-glow."
+        "name": "signal-halo",
+        "value": "0 0 5px rgb(185 233 87 / .39)",
+        "purpose": "Aproximación CSS de los halos radiales dibujados por VoiceSignal."
       }
     ],
     "motion": [
       {
         "name": "island-enter",
-        "value": "260ms BackEase EaseOut",
-        "purpose": "Escala y desplazamiento de entrada WPF; opacidad en 200ms."
+        "value": "350ms BackEase EaseOut",
+        "purpose": "Expansión horizontal 0.52 a 1; escala vertical y desplazamiento en 300ms, opacidad en 180ms."
+      },
+      {
+        "name": "island-expand",
+        "value": "240ms CubicEase EaseOut",
+        "purpose": "Expansión vertical al recibir texto, con el borde inferior anclado."
       },
       {
         "name": "island-exit",
-        "value": "180ms CubicEase EaseIn",
+        "value": "190ms CubicEase EaseIn",
         "purpose": "Salida de escala y opacidad."
       },
       {
         "name": "transcript-opacity",
-        "value": "170ms CubicEase EaseOut",
-        "purpose": "Entrada de palabras; desplazamiento en 190ms."
+        "value": "220ms CubicEase EaseOut",
+        "purpose": "Solo palabras nuevas o modificadas, con hasta 120ms de desfase."
+      },
+      {
+        "name": "voice-envelope",
+        "value": "45ms attack / 180ms release",
+        "purpose": "Suavizado del nivel de audio independiente de la frecuencia de captura, con actualización visual nominal de 60Hz."
       },
       {
         "name": "square-pulse",
-        "value": "800ms autoreverse repeat forever",
-        "purpose": "Escala 1 a 1.8 y opacidad 0.4 a 0.05 del pulso cuadrado."
+        "value": "800ms autoreverse repeat",
+        "purpose": "Escala 1 a 1.8 y opacidad 0.4 a 0.05 del pulso cuadrado mientras la cápsula está activa."
       }
     ]
   },
@@ -658,17 +654,17 @@
       "name": "Cápsula de grabación",
       "kind": "custom",
       "refersTo": "island",
-      "description": "Muestra estática del rope de audio; wrap y scroll reales, sin simular captura.",
-      "html": "<section class=\"ds-island\" aria-label=\"Grabación\"><div class=\"ds-island-row\"><button class=\"ds-island-control\" aria-label=\"Cancelar dictado\"><span class=\"ds-island-square\"></span></button><span class=\"ds-island-rope\">. : . . . : * . : . . : . * : . . : .</span><time class=\"ds-island-timer\">0:01</time><button class=\"ds-island-control\" aria-label=\"Terminar y pegar\">&gt;</button></div><div class=\"ds-island-transcript\">Revisa el texto <span class=\"ds-island-pending\">dictado</span></div></section>",
-      "css": ".ds-island{box-sizing:border-box;width:344px;min-height:52px;padding:9px 12px;border-radius:28px;background:#101012;color:#EDEDEE;border:1px solid #2B2B2F;box-shadow:0 3px 24px rgb(0 0 0 / .38);font-family:'Segoe UI',sans-serif;overflow:hidden;}.ds-island-row{display:flex;align-items:center;justify-content:center;gap:0}.ds-island-control{width:26px;height:26px;padding:0;flex-shrink:0;border:0;background:transparent;color:#F2F2F4;font:bold 17px Consolas,monospace;cursor:pointer}.ds-island-control:hover,.ds-island-control:focus-visible{opacity:.72}.ds-island-control:focus-visible{outline:auto}.ds-island-control:active{opacity:.72}.ds-island-square{display:inline-block;width:8px;height:8px;background:#F2F2F4;box-shadow:0 0 0 3px rgb(242 242 244 / .32)}.ds-island-rope{width:224px;margin-right:4px;white-space:nowrap;text-align:center;font:bold 8.5px/9px Consolas,monospace;color:#F3F6FF;text-shadow:0 0 6px rgb(243 246 255 / .82)}.ds-island-timer{font:11px Consolas,monospace;color:#8C8C90}.ds-island-transcript{max-height:82px;overflow-y:auto;overflow-x:hidden;overflow-wrap:anywhere;white-space:normal;margin:7px 8px 0;font-size:17px;line-height:23px}.ds-island-pending{color:#8C8C90}"
+      "description": "Indicador nativo de dictado con partículas de lima y verde que reaccionan al volumen. La muestra HTML representa un fotograma.",
+      "html": "<section class=\"ds-island\" aria-label=\"Grabación\"><div class=\"ds-island-row\"><button class=\"ds-island-control\" aria-label=\"Cancelar dictado\"><span class=\"ds-island-square\"></span></button><svg class=\"ds-island-rope\" aria-hidden=\"true\" width=\"224\" height=\"30\" viewBox=\"0 0 224 30\"><rect x=\"5.00\" y=\"15.06\" width=\"0.95\" height=\"0.95\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.34\"/><rect x=\"4.31\" y=\"13.16\" width=\"2.33\" height=\"2.33\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.79\"/><rect x=\"10.02\" y=\"15.10\" width=\"0.83\" height=\"0.83\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.27\"/><rect x=\"9.15\" y=\"12.80\" width=\"2.56\" height=\"2.56\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.89\"/><rect x=\"14.98\" y=\"14.42\" width=\"0.80\" height=\"0.80\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.25\"/><rect x=\"14.04\" y=\"13.20\" width=\"2.68\" height=\"2.68\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.94\"/><rect x=\"19.91\" y=\"13.26\" width=\"0.87\" height=\"0.87\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.29\"/><rect x=\"19.00\" y=\"14.22\" width=\"2.68\" height=\"2.68\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.94\"/><rect x=\"24.79\" y=\"11.94\" width=\"1.01\" height=\"1.01\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.38\"/><rect x=\"24.02\" y=\"15.59\" width=\"2.56\" height=\"2.56\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.89\"/><rect x=\"29.64\" y=\"10.80\" width=\"1.22\" height=\"1.22\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.50\"/><rect x=\"29.08\" y=\"16.99\" width=\"2.33\" height=\"2.33\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.79\"/><rect x=\"34.48\" y=\"10.15\" width=\"1.45\" height=\"1.45\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.64\"/><rect x=\"34.19\" y=\"18.07\" width=\"2.04\" height=\"2.04\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.66\"/><rect x=\"39.32\" y=\"10.21\" width=\"1.67\" height=\"1.67\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.77\"/><rect x=\"39.30\" y=\"18.54\" width=\"1.72\" height=\"1.72\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.52\"/><rect x=\"44.19\" y=\"11.09\" width=\"1.85\" height=\"1.85\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.88\"/><rect x=\"44.40\" y=\"18.22\" width=\"1.43\" height=\"1.43\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.39\"/><rect x=\"49.09\" y=\"12.68\" width=\"1.95\" height=\"1.95\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.94\"/><rect x=\"49.46\" y=\"17.06\" width=\"1.22\" height=\"1.22\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.30\"/><rect x=\"54.04\" y=\"14.76\" width=\"1.97\" height=\"1.97\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.95\"/><rect x=\"54.47\" y=\"15.22\" width=\"1.11\" height=\"1.11\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.25\"/><rect x=\"59.03\" y=\"16.98\" width=\"1.89\" height=\"1.89\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.90\"/><rect x=\"59.41\" y=\"12.99\" width=\"1.13\" height=\"1.13\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.26\"/><rect x=\"64.07\" y=\"18.93\" width=\"1.73\" height=\"1.73\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.81\"/><rect x=\"64.30\" y=\"10.74\" width=\"1.27\" height=\"1.27\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.32\"/><rect x=\"69.12\" y=\"20.23\" width=\"1.52\" height=\"1.52\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.68\"/><rect x=\"69.13\" y=\"8.88\" width=\"1.51\" height=\"1.51\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.43\"/><rect x=\"74.20\" y=\"20.61\" width=\"1.29\" height=\"1.29\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.54\"/><rect x=\"73.94\" y=\"7.79\" width=\"1.81\" height=\"1.81\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.56\"/><rect x=\"79.26\" y=\"19.96\" width=\"1.07\" height=\"1.07\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.41\"/><rect x=\"78.73\" y=\"7.69\" width=\"2.13\" height=\"2.13\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.70\"/><rect x=\"84.30\" y=\"18.33\" width=\"0.91\" height=\"0.91\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.31\"/><rect x=\"83.55\" y=\"8.65\" width=\"2.41\" height=\"2.41\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.82\"/><rect x=\"89.30\" y=\"15.98\" width=\"0.82\" height=\"0.82\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.26\"/><rect x=\"88.40\" y=\"10.54\" width=\"2.61\" height=\"2.61\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.91\"/><rect x=\"94.25\" y=\"13.27\" width=\"0.81\" height=\"0.81\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.26\"/><rect x=\"93.31\" y=\"13.06\" width=\"2.70\" height=\"2.70\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.95\"/><rect x=\"99.16\" y=\"10.67\" width=\"0.90\" height=\"0.90\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.31\"/><rect x=\"98.28\" y=\"15.81\" width=\"2.66\" height=\"2.66\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.93\"/><rect x=\"104.03\" y=\"8.62\" width=\"1.07\" height=\"1.07\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.41\"/><rect x=\"103.32\" y=\"18.31\" width=\"2.50\" height=\"2.50\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.86\"/><rect x=\"108.88\" y=\"7.47\" width=\"1.28\" height=\"1.28\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.54\"/><rect x=\"108.40\" y=\"20.15\" width=\"2.25\" height=\"2.25\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.75\"/><rect x=\"113.72\" y=\"7.42\" width=\"1.52\" height=\"1.52\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.68\"/><rect x=\"113.50\" y=\"21.01\" width=\"1.95\" height=\"1.95\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.62\"/><rect x=\"118.57\" y=\"8.47\" width=\"1.73\" height=\"1.73\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.80\"/><rect x=\"118.62\" y=\"20.75\" width=\"1.63\" height=\"1.63\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.48\"/><rect x=\"123.44\" y=\"10.44\" width=\"1.89\" height=\"1.89\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.90\"/><rect x=\"123.71\" y=\"19.43\" width=\"1.36\" height=\"1.36\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.36\"/><rect x=\"128.36\" y=\"13.00\" width=\"1.96\" height=\"1.96\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.95\"/><rect x=\"128.75\" y=\"17.27\" width=\"1.17\" height=\"1.17\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.28\"/><rect x=\"133.32\" y=\"15.70\" width=\"1.95\" height=\"1.95\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.94\"/><rect x=\"133.75\" y=\"14.65\" width=\"1.10\" height=\"1.10\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.25\"/><rect x=\"138.32\" y=\"18.10\" width=\"1.85\" height=\"1.85\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.88\"/><rect x=\"138.67\" y=\"12.01\" width=\"1.15\" height=\"1.15\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.27\"/><rect x=\"143.37\" y=\"19.81\" width=\"1.68\" height=\"1.68\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.77\"/><rect x=\"143.54\" y=\"9.80\" width=\"1.33\" height=\"1.33\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.35\"/><rect x=\"148.43\" y=\"20.57\" width=\"1.46\" height=\"1.46\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.64\"/><rect x=\"148.36\" y=\"8.36\" width=\"1.59\" height=\"1.59\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.46\"/><rect x=\"153.50\" y=\"20.31\" width=\"1.23\" height=\"1.23\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.50\"/><rect x=\"153.16\" y=\"7.89\" width=\"1.90\" height=\"1.90\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.60\"/><rect x=\"158.56\" y=\"19.12\" width=\"1.02\" height=\"1.02\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.38\"/><rect x=\"157.96\" y=\"8.41\" width=\"2.21\" height=\"2.21\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.74\"/><rect x=\"163.59\" y=\"17.26\" width=\"0.87\" height=\"0.87\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.29\"/><rect x=\"162.79\" y=\"9.78\" width=\"2.47\" height=\"2.47\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.85\"/><rect x=\"168.57\" y=\"15.10\" width=\"0.81\" height=\"0.81\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.25\"/><rect x=\"167.65\" y=\"11.70\" width=\"2.65\" height=\"2.65\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.93\"/><rect x=\"173.52\" y=\"13.02\" width=\"0.83\" height=\"0.83\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.27\"/><rect x=\"172.58\" y=\"13.80\" width=\"2.70\" height=\"2.70\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.95\"/><rect x=\"178.41\" y=\"11.37\" width=\"0.94\" height=\"0.94\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.33\"/><rect x=\"177.57\" y=\"15.70\" width=\"2.63\" height=\"2.63\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.92\"/><rect x=\"183.28\" y=\"10.39\" width=\"1.13\" height=\"1.13\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.44\"/><rect x=\"182.62\" y=\"17.11\" width=\"2.44\" height=\"2.44\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.84\"/><rect x=\"188.12\" y=\"10.18\" width=\"1.35\" height=\"1.35\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.58\"/><rect x=\"187.71\" y=\"17.82\" width=\"2.17\" height=\"2.17\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.72\"/><rect x=\"192.96\" y=\"10.67\" width=\"1.58\" height=\"1.58\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.72\"/><rect x=\"192.82\" y=\"17.82\" width=\"1.85\" height=\"1.85\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.58\"/><rect x=\"197.81\" y=\"11.66\" width=\"1.78\" height=\"1.78\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.84\"/><rect x=\"197.93\" y=\"17.20\" width=\"1.55\" height=\"1.55\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.45\"/><rect x=\"202.70\" y=\"12.85\" width=\"1.92\" height=\"1.92\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.92\"/><rect x=\"203.01\" y=\"16.20\" width=\"1.30\" height=\"1.30\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.34\"/><rect x=\"207.63\" y=\"13.94\" width=\"1.97\" height=\"1.97\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.95\"/><rect x=\"208.04\" y=\"15.13\" width=\"1.14\" height=\"1.14\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.27\"/><rect x=\"212.60\" y=\"14.62\" width=\"1.93\" height=\"1.93\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.93\"/><rect x=\"213.02\" y=\"14.31\" width=\"1.10\" height=\"1.10\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.25\"/><rect x=\"217.62\" y=\"14.65\" width=\"1.81\" height=\"1.81\" rx=\".35\" fill=\"#78D99D\" opacity=\"0.85\"/><rect x=\"217.93\" y=\"14.03\" width=\"1.19\" height=\"1.19\" rx=\".35\" fill=\"#B9E957\" opacity=\"0.29\"/></svg><time class=\"ds-island-timer\">0:01</time><button class=\"ds-island-control\" aria-label=\"Terminar y pegar\">&gt;</button></div><div class=\"ds-island-transcript\">Revisa el texto <span class=\"ds-island-pending\">dictado</span></div></section>",
+      "css": ".ds-island{box-sizing:border-box;width:344px;min-height:52px;padding:9px 12px;border-radius:28px;background:#101012;color:#EDEDEE;border:1px solid #2B2B2F;box-shadow:0 3px 24px rgb(0 0 0 / .38);font-family:'Segoe UI',sans-serif;overflow:hidden;}.ds-island-row{display:flex;align-items:center;justify-content:center;gap:0}.ds-island-control{width:26px;height:26px;padding:0;flex-shrink:0;border:0;background:transparent;color:#F2F2F4;font:bold 17px Consolas,monospace;cursor:pointer}.ds-island-control:hover,.ds-island-control:focus-visible{opacity:.72}.ds-island-control:focus-visible{outline:auto}.ds-island-control:active{opacity:.72}.ds-island-square{display:inline-block;width:8px;height:8px;background:#F2F2F4;box-shadow:0 0 0 3px rgb(242 242 244 / .32)}.ds-island-rope{width:224px;height:30px;flex-shrink:0;margin-right:4px;overflow:hidden;filter:drop-shadow(0 0 2px rgb(185 233 87 / .39))}.ds-island-timer{font:11px Consolas,monospace;color:#8C8C90}.ds-island-transcript{max-height:82px;overflow-y:auto;overflow-x:hidden;overflow-wrap:anywhere;white-space:normal;margin:7px 8px 0;font-size:17px;line-height:23px}.ds-island-pending{color:#8C8C90}"
     }
   ],
   "narrative": {
     "northStar": "Retícula de dictado de Windows y cápsula de grabación",
-    "overview": "Flow para Windows organiza el dictado, el historial y los ajustes en módulos rectangulares, con superficies verdes y bordes visibles. El texto describe acciones y estados; los índices ASCII ayudan a localizar funciones sin sustituir sus nombres.\n\nEl dictado global es la prioridad de esta superficie. La cápsula negra de grabación permanece sobre la aplicación activa sin activarla: muestra una línea fina de puntos y destellos que responde al volumen, duración y transcripción debajo cuando está disponible. Su silueta redondeada es una excepción explícita a la retícula cuadrada.",
+    "overview": "Flow para Windows organiza el dictado, el historial y los ajustes en módulos rectangulares, con superficies verdes y bordes visibles. El texto describe acciones y estados; los índices ASCII ayudan a localizar funciones sin sustituir sus nombres.\n\nEl dictado global es la prioridad de esta superficie. La cápsula negra de grabación permanece sobre la aplicación activa sin activarla: muestra dos hebras luminosas de partículas en lima y verde que responden al volumen, duración y transcripción debajo cuando está disponible. Su silueta redondeada es una excepción explícita a la retícula cuadrada.",
     "keyCharacteristics": [
       "Retícula rectangular con bordes finos y selección de color sólido.",
-      "Segoe UI para lectura de interfaz; Consolas para índices y señal ASCII.",
+      "Segoe UI para lectura de interfaz; Consolas para índices y duración. Partículas de luz dibujadas por WPF.",
       "Dos temas operativos; cápsula negra independiente del tema.",
       "Copy funcional en castellano, sin lemas."
     ],
@@ -680,7 +676,7 @@
       },
       {
         "name": "The Text Role Rule",
-        "body": "Mantén los nombres y el texto legible en la tipografía de interfaz; limita Consolas a índices, marcas ASCII, duración y señal.",
+        "body": "Mantén los nombres y el texto legible en la tipografía de interfaz; limita Consolas a índices, marcas ASCII y duración.",
         "section": "typography"
       },
       {

@@ -41,7 +41,6 @@ colors:
   island-ink: "#F2F2F4"
   island-text: "#EDEDEE"
   island-pending: "#8C8C90"
-  island-glow: "#F3F6FF"
 typography:
   title:
     fontSize: "22px"
@@ -59,11 +58,6 @@ typography:
   mono-timer:
     fontFamily: "Consolas"
     fontSize: "11px"
-  mono-signal:
-    fontFamily: "Consolas"
-    fontSize: "8.5px"
-    fontWeight: 700
-    lineHeight: "9px"
   transcript:
     fontSize: "17px"
     lineHeight: "23px"
@@ -125,15 +119,15 @@ components:
 
 Flow para Windows organiza el dictado, el historial y los ajustes en módulos rectangulares, con superficies verdes y bordes visibles. El texto describe acciones y estados; los índices ASCII ayudan a localizar funciones sin sustituir sus nombres.
 
-El dictado global es la prioridad de esta superficie. La cápsula negra de grabación permanece sobre la aplicación activa sin activarla: muestra una línea fina de puntos y destellos que responde al volumen, duración y transcripción debajo cuando está disponible. Su silueta redondeada es una excepción explícita a la retícula cuadrada.
+El dictado global es la prioridad de esta superficie. La cápsula negra de grabación permanece sobre la aplicación activa sin activarla: muestra dos hebras luminosas de partículas en lima y verde que responden al volumen, duración y transcripción debajo cuando está disponible. Su silueta redondeada es una excepción explícita a la retícula cuadrada.
 
 **Key Characteristics:**
 - Retícula rectangular con bordes finos y selección de color sólido.
-- Segoe UI para lectura de interfaz; Consolas para índices y señal ASCII.
+- Segoe UI para lectura de interfaz; Consolas para índices y duración. Partículas de luz dibujadas por WPF.
 - Dos temas operativos; cápsula negra independiente del tema.
 - Copy funcional en castellano, sin lemas.
 
-El alcance documentado es la interfaz WPF de Windows. Fuentes: Flow.Windows/FlowStyles.xaml, ThemeManager.cs, MainWindow.xaml, RecordingIndicatorWindow.xaml y su code-behind; MainWindow.xaml.cs conecta nivel de audio, texto y ciclo de dictado. PRODUCT.md y el contrato de superficie aportan las decisiones confirmadas. La captura del usuario es una referencia de forma y señal, no una fuente de medidas del programa.
+El alcance documentado es la interfaz WPF de Windows. Fuentes: Flow.Windows/FlowStyles.xaml, ThemeManager.cs, MainWindow.xaml, RecordingIndicatorWindow.xaml, su code-behind y VoiceSignal.cs; MainWindow.xaml.cs conecta nivel de audio, texto y ciclo de dictado. PRODUCT.md y el contrato de superficie aportan las decisiones confirmadas. La captura del usuario es una referencia de forma y señal, no una fuente de medidas del programa. La secuencia de revisión en .impeccable/review/recording-motion.mp4 se capturó del componente WPF real con niveles de audio y textos simulados.
 
 ## Colors
 
@@ -167,14 +161,14 @@ El tema oscuro combina verdes profundos y lima; el claro usa verdes pálidos y u
 - **island-bg / island-border:** negro y borde fijo de la cápsula; ThemeManager no los reemplaza.
 - **island-ink:** controles de la cápsula.
 - **island-text / island-pending:** texto estable y última palabra pendiente; pending también se usa en duración y procesamiento.
-- **island-glow:** línea luminosa de puntos y destellos.
+- **accent-dark / success-dark:** los tonos lima y verde de las dos hebras del visualizador; permanecen fijos sobre el fondo negro de la cápsula en ambos temas.
 
 **The Operational Color Rule.** Reserva accent para acción y selección; recording, sync, success y warning distinguen estados operativos, con texto que explicita su significado.
 
 ## Typography
 
 **Body Font:** Segoe UI como fuente de interfaz predeterminada de WPF en Windows; el código inspeccionado no fija una familia global.
-**Label/Mono Font:** Consolas, declarada explícitamente para índices, identificación de plataforma, duración y señal.
+**Label/Mono Font:** Consolas, declarada explícitamente para índices, identificación de plataforma y duración.
 
 La jerarquía es compacta y funcional. No existe una escala display de marca ni una razón matemática de escalado declarada. Los tamaños del frontmatter expresan valores XAML en unidades independientes del dispositivo (DIP), representadas como px nominales para interoperabilidad; no son medidas de píxeles físicos.
 
@@ -184,10 +178,10 @@ La jerarquía es compacta y funcional. No existe una escala display de marca ni 
 - **Body:** body para campos y explicaciones; supporting para apoyo en ajustes y botones secundarios.
 - **Label:** label en filtros; navegación a 13 DIP con Medium y SemiBold al seleccionar.
 - **Mono:** mono-index para índices; mono-timer para duración. Los grupos laterales observados usan Consolas 9.5 DIP Bold; se documentan como evidencia local y no como patrón de encabezado para nuevas pantallas.
-- **Signal:** mono-signal es la base XAML; cada carácter generado ajusta su tamaño según la energía del audio.
+- **Signal:** partículas geométricas dibujadas por VoiceSignal; no dependen de una familia tipográfica.
 - **Transcript:** transcript para palabras de la cápsula, con wrap y última palabra en island-pending.
 
-**The Text Role Rule.** Mantén los nombres y el texto legible en la tipografía de interfaz; limita Consolas a índices, marcas ASCII, duración y señal.
+**The Text Role Rule.** Mantén los nombres y el texto legible en la tipografía de interfaz; limita Consolas a índices, marcas ASCII y duración.
 
 ## Layout
 
@@ -195,7 +189,7 @@ La ventana principal tiene tamaño inicial 1112 × 752 DIP y mínimo 912 × 632 
 
 Las filas Auto contienen cabeceras y herramientas; las listas y ajustes usan la altura restante con scroll vertical. La búsqueda se estira entre filtros y acción secundaria. En reuniones, la lista mide 250 y el separador 16. Los formularios combinan columnas proporcionales y separadores de 10, 12 o 16. El ritmo reutilizado de separación figura en spacing; los módulos WisprCard declaran padding 16.
 
-La cápsula mide 344 de ancho dentro de una ventana transparente de 384 × 88; su mínimo de altura inicial es 52. Al mostrar texto, la ventana pasa a 384 × 160 y el mínimo de la cápsula a 80, manteniendo su ancho. Se posiciona en el centro inferior del área de trabajo, a 12 DIP del borde de la ventana. El texto tiene margen 8,7,8,0 y viewport de máximo 82 de alto con scroll vertical automático y horizontal desactivado. El code-behind conserva los últimos 900 caracteres con prefijo de elipsis y desplaza el scroll al final.
+La cápsula mide 344 de ancho dentro de una ventana transparente de 384 × 184; su mínimo de altura inicial es 52. Al mostrar texto, el mínimo de la cápsula pasa a 80, manteniendo la misma anchura y el borde inferior. La ventana se posiciona en el centro inferior del área de trabajo, a 12 DIP del borde; la cápsula conserva un margen inferior de 18. El texto tiene margen 8,7,8,0 y viewport de máximo 82 de alto con scroll vertical automático y horizontal desactivado. El code-behind conserva los últimos 900 caracteres con prefijo de elipsis y desplaza el scroll al final.
 
 ## Elevation & Depth
 
@@ -205,9 +199,9 @@ Los módulos internos son planos: fondos tonales y bordes de 1 separan áreas. H
 
 - **Marco principal:** DropShadowEffect negro, BlurRadius 18, ShadowDepth 3, Direction 270 y Opacity 0.32.
 - **Cápsula:** DropShadowEffect negro, BlurRadius 24, ShadowDepth 3, Direction 270 y Opacity 0.38.
-- **Señal:** DropShadowEffect island-glow, BlurRadius 6, ShadowDepth 0 y Opacity 0.82.
+- **Señal:** halos radiales de lima alrededor de las partículas más brillantes, dibujados en el mismo visual nativo, con radio 2.3 veces el tamaño de la partícula.
 
-El sidecar traduce estas sombras a CSS para muestras del panel; CSS y WPF no garantizan rasterización idéntica. La entrada de cápsula anima escala 0.82 a 1, desplazamiento vertical 12 a 0 en 260 ms con BackEase y opacidad en 200 ms. La salida dura 180 ms; las palabras entran con opacidad en 170 ms y desplazamiento 4 a 0 en 190 ms. El pulso cuadrado alterna escala y opacidad en 800 ms con autorreversa.
+El sidecar traduce estas sombras a CSS para muestras del panel; CSS y WPF no garantizan rasterización idéntica. La entrada de cápsula anima escala horizontal 0.52 a 1 en 350 ms con BackEase, escala vertical y desplazamiento en 300 ms, y opacidad en 180 ms. Al recibir la primera transcripción se expande verticalmente en 240 ms. Solo los términos nuevos o modificados se revelan con opacidad en 220 ms, con un desfase máximo de 120 ms. La salida dura 190 ms y el pulso cuadrado alterna escala y opacidad en 800 ms con autorreversa. Se respeta ClientAreaAnimation de Windows y las animaciones continuas se detienen al ocultar, cancelar o finalizar.
 
 ## Shapes
 
@@ -243,11 +237,11 @@ WisprNavTab: RadioButton con padding 10,8 y margen vertical 1.5. En reposo tiene
 
 ### Recording Capsule
 
-Voice Island usa island, borde 1 en island-border y controles de 26 × 26. Cancelar tiene núcleo cuadrado de 8 y pulso de 14; terminar usa el carácter ASCII > en Consolas 17 Bold. Hover y foco de teclado bajan su opacidad a 0.72. Los nombres accesibles y tooltips explicitan Cancelar dictado y Terminar y pegar.
+La cápsula de Flow usa island, borde 1 en island-border y controles de 26 × 26. Cancelar tiene núcleo cuadrado de 8 y pulso de 14; terminar usa el carácter ASCII > en Consolas 17 Bold. Hover y foco de teclado bajan su opacidad a 0.72. Los nombres accesibles y tooltips explicitan Cancelar dictado y Terminar y pegar.
 
-La línea ocupa 224 de ancho durante grabación: 47 caracteres de puntos, dos puntos, espacios y destellos * cambian distribución vertical, tamaño y alfa con el nivel de audio. La duración se sitúa a su lado; el texto aparece debajo cuando ShowRecording recibe previsualización activa. MainWindow activa esa opción para transcripción local. La última palabra permanece en island-pending, las anteriores usan island-text; el contenedor permite wrap y scroll, sin exigir una única línea.
+El visualizador ocupa 224 × 30 DIP durante grabación: dos hebras de partículas cuadradas en lima y verde con brillo, tamaño y amplitud modulados por el nivel de audio. VoiceSignal aspira a 60 actualizaciones visuales por segundo, consume el pico más reciente sin encolar callbacks en el dispatcher, y suaviza ataque y caída con constantes de 45 y 180 ms. La duración se sitúa a su lado; el texto aparece debajo cuando ShowRecording recibe previsualización activa. MainWindow activa esa opción para transcripción local. La última palabra permanece en island-pending, las anteriores usan island-text; el contenedor permite wrap y scroll, sin exigir una única línea.
 
-Procesamiento detiene el reloj, reduce la línea a 124 y 24 caracteres, muestra Procesando o Transcribiendo y cambia el control cuadrado a warning. Éxito oculta la línea, muestra [OK], usa success y espera 750 ms antes de salir. La ventana es topmost, no se activa al mostrarse y aplica WS_EX_NOACTIVATE y WS_EX_TOOLWINDOW; se puede arrastrar desde la cápsula.
+Procesamiento detiene el reloj, reduce la señal a 124 DIP, aplana su amplitud y mantiene una luz que recorre la hebra, muestra Procesando o Transcribiendo y cambia el control cuadrado a warning. Éxito oculta la señal, muestra [OK], usa success y espera 750 ms antes de salir. La ventana es topmost, no se activa al mostrarse y aplica WS_EX_NOACTIVATE y WS_EX_TOOLWINDOW; se puede arrastrar desde la cápsula.
 
 ## Do's and Don'ts
 

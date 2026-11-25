@@ -19,7 +19,7 @@ public partial class RecordingIndicatorWindow : Window
     private DateTime _recordStartTime;
     private bool _showTranscriptPreview;
     private string _lastPreviewText = string.Empty;
-    private int _audioFrame;
+    private int _visualGeneration;
     private volatile bool _acceptAudioLevels;
 
     public event Action? CancelRequested;
@@ -31,13 +31,14 @@ public partial class RecordingIndicatorWindow : Window
         _durationTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         _durationTimer.Tick += (_, _) => UpdateTimer();
         SourceInitialized += OnSourceInitialized;
+        Closed += (_, _) => StopVisuals();
         PositionBottomCenter();
     }
 
     public void ShowRecording(bool showTranscriptPreview = false)
     {
-        _acceptAudioLevels = true;
-        _durationTimer.Stop();
+        ++_visualGeneration;
+        StopVisuals();
         PillBorder.BeginAnimation(FrameworkElement.WidthProperty, null);
         PillScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
         PillScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
@@ -46,24 +47,26 @@ public partial class RecordingIndicatorWindow : Window
         _recordStartTime = DateTime.UtcNow;
         _showTranscriptPreview = showTranscriptPreview;
         _lastPreviewText = string.Empty;
-        _audioFrame = 0;
         DurationLabel.Text = "0:00";
         Width = 384;
-        Height = 88;
+        Height = 184;
         PillBorder.Width = 344;
         PillBorder.MinHeight = 52;
         TranscriptPreviewText.Inlines.Clear();
+        TranscriptPreviewText.BeginAnimation(OpacityProperty, null);
+        TranscriptRise.BeginAnimation(TranslateTransform.YProperty, null);
         TranscriptPreviewScroll.Visibility = Visibility.Collapsed;
         WaveBarsContainer.Visibility = Visibility.Visible;
         WaveBarsContainer.Opacity = 1;
-        WaveBarsContainer.Foreground = (SolidColorBrush)FindResource("BrushIslandGlow");
+        WaveBarsContainer.Width = 224;
         PulseDot.Fill = (SolidColorBrush)FindResource("BrushIslandInk");
         PulseRing.Fill = (SolidColorBrush)FindResource("BrushIslandInk");
 
         PositionBottomCenter();
         AnimateIn();
         StartPulseAnimation();
-        SetAudioLevel(0.05f);
+        WaveBarsContainer.BeginRecording();
+        _acceptAudioLevels = true;
         _durationTimer.Start();
     }
 
@@ -78,15 +81,15 @@ public partial class RecordingIndicatorWindow : Window
         if (!IsVisible || !_showTranscriptPreview || string.IsNullOrWhiteSpace(text)) return;
         const int previewLimit = 900;
         var preview = text.Length > previewLimit ? $"...{text[^previewLimit..]}" : text;
-        var previousWordCount = CountWords(_lastPreviewText);
+        if (preview == _lastPreviewText) return;
         var wasExpanded = TranscriptPreviewScroll.Visibility == Visibility.Visible;
+        RenderTranscriptPreview(preview, _lastPreviewText);
         _lastPreviewText = preview;
-        RenderTranscriptPreview(preview);
 
         if (!wasExpanded)
             ExpandForTranscriptPreview();
 
-        if (!wasExpanded || CountWords(preview) > previousWordCount)
+        if (!wasExpanded && SystemParameters.ClientAreaAnimation)
             AnimateTranscriptEntry();
 
         TranscriptPreviewScroll.ScrollToEnd();
@@ -97,65 +100,101 @@ public partial class RecordingIndicatorWindow : Window
         _acceptAudioLevels = false;
         _durationTimer.Stop();
         DurationLabel.Text = localTranscription ? "Procesando" : "Transcribiendo";
-        WaveBarsContainer.Foreground = (SolidColorBrush)FindResource("BrushIslandPending");
         WaveBarsContainer.Width = 124;
-        RenderAsciiRope(0.12f, 24);
+        WaveBarsContainer.BeginProcessing();
         PulseDot.Fill = (SolidColorBrush)FindResource("BrushAccentWarning");
         PulseRing.Fill = (SolidColorBrush)FindResource("BrushAccentWarning");
     }
 
     public async Task ShowSuccessAsync()
     {
-        _acceptAudioLevels = false;
-        _durationTimer.Stop();
+        var generation = _visualGeneration;
+        StopVisuals();
+        _showTranscriptPreview = false;
+        if (!IsVisible) return;
+        if (_lastPreviewText.Length > 0)
+            RenderTranscriptPreview(_lastPreviewText, _lastPreviewText, settled: true);
         DurationLabel.Text = "[OK]";
         WaveBarsContainer.Visibility = Visibility.Collapsed;
         PulseDot.Fill = (SolidColorBrush)FindResource("BrushAccentSuccess");
         PulseRing.Fill = (SolidColorBrush)FindResource("BrushAccentSuccess");
 
         await Task.Delay(750);
-        AnimateOut();
+        if (generation == _visualGeneration) AnimateOut();
     }
 
     public void HideImmediate()
     {
-        _acceptAudioLevels = false;
-        _durationTimer.Stop();
+        ++_visualGeneration;
+        StopVisuals();
+        _showTranscriptPreview = false;
         Hide();
     }
 
     private void AnimateIn()
     {
         Show();
-        var scaleAnim = new DoubleAnimation(0.82, 1.0, new Duration(TimeSpan.FromMilliseconds(260)))
+        if (!SystemParameters.ClientAreaAnimation)
         {
-            EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.22 }
+            PillScale.ScaleX = PillScale.ScaleY = Opacity = 1;
+            PillTranslate.Y = 0;
+            return;
+        }
+        var scaleAnim = new DoubleAnimation(0.52, 1.0, new Duration(TimeSpan.FromMilliseconds(350)))
+        {
+            EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.34 }
         };
-        var opacityAnim = new DoubleAnimation(0.0, 1.0, new Duration(TimeSpan.FromMilliseconds(200)));
-        var transAnim = new DoubleAnimation(12, 0, new Duration(TimeSpan.FromMilliseconds(260)))
+        var heightAnim = new DoubleAnimation(0.85, 1.0, new Duration(TimeSpan.FromMilliseconds(300)))
         {
-            EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.18 }
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        var opacityAnim = new DoubleAnimation(0.55, 1.0, new Duration(TimeSpan.FromMilliseconds(180)));
+        var transAnim = new DoubleAnimation(5, 0, new Duration(TimeSpan.FromMilliseconds(300)))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
         };
 
         PillScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnim);
-        PillScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnim);
+        PillScale.BeginAnimation(ScaleTransform.ScaleYProperty, heightAnim);
         PillTranslate.BeginAnimation(TranslateTransform.YProperty, transAnim);
         BeginAnimation(OpacityProperty, opacityAnim);
     }
 
     public void AnimateOut()
     {
-        _acceptAudioLevels = false;
-        var scaleAnim = new DoubleAnimation(1.0, 0.7, new Duration(TimeSpan.FromMilliseconds(180)))
+        var generation = ++_visualGeneration;
+        StopVisuals();
+        _showTranscriptPreview = false;
+        if (!IsVisible) return;
+        if (!SystemParameters.ClientAreaAnimation)
+        {
+            Hide();
+            return;
+        }
+        var scaleAnim = new DoubleAnimation(PillScale.ScaleX, 0.55, new Duration(TimeSpan.FromMilliseconds(190)))
         {
             EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
         };
-        var opacityAnim = new DoubleAnimation(1.0, 0.0, new Duration(TimeSpan.FromMilliseconds(180)));
-        opacityAnim.Completed += (_, _) => Hide();
+        var heightAnim = new DoubleAnimation(PillScale.ScaleY, 0.84, new Duration(TimeSpan.FromMilliseconds(190)));
+        var opacityAnim = new DoubleAnimation(Opacity, 0.0, new Duration(TimeSpan.FromMilliseconds(190)));
+        opacityAnim.Completed += (_, _) =>
+        {
+            if (generation == _visualGeneration) Hide();
+        };
 
         PillScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnim);
-        PillScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnim);
+        PillScale.BeginAnimation(ScaleTransform.ScaleYProperty, heightAnim);
         BeginAnimation(OpacityProperty, opacityAnim);
+    }
+
+    private void StopVisuals()
+    {
+        _acceptAudioLevels = false;
+        _durationTimer.Stop();
+        WaveBarsContainer.Stop();
+        PulseRingScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        PulseRingScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        PulseRing.BeginAnimation(OpacityProperty, null);
     }
 
     private void UpdateTimer()
@@ -166,6 +205,7 @@ public partial class RecordingIndicatorWindow : Window
 
     private void StartPulseAnimation()
     {
+        if (!SystemParameters.ClientAreaAnimation) return;
         var scaleAnim = new DoubleAnimation(1.0, 1.8, new Duration(TimeSpan.FromMilliseconds(800)))
         {
             AutoReverse = true,
@@ -183,102 +223,87 @@ public partial class RecordingIndicatorWindow : Window
 
     public void SetAudioLevel(float level)
     {
-        if (!Dispatcher.CheckAccess())
-        {
-            if (!_acceptAudioLevels) return;
-            Dispatcher.BeginInvoke(() => SetAudioLevel(level));
-            return;
-        }
-
-        if (!_acceptAudioLevels || !IsVisible || WaveBarsContainer.Visibility != Visibility.Visible) return;
-        WaveBarsContainer.Width = 224;
-        WaveBarsContainer.Foreground = (SolidColorBrush)FindResource("BrushIslandGlow");
-        RenderAsciiRope(level, 47);
+        if (_acceptAudioLevels) WaveBarsContainer.PushLevel(level);
     }
 
-    private void RenderAsciiRope(float level, int columns)
-    {
-        var baseColor = ((SolidColorBrush)WaveBarsContainer.Foreground).Color;
-        var energy = Math.Clamp(Math.Sqrt(Math.Clamp(level, 0f, 1f)) * 2.1, 0.22, 1.0);
-        var phase = ++_audioFrame * 0.37;
-        WaveBarsContainer.Inlines.Clear();
-
-        for (var i = 0; i < columns; i++)
-        {
-            var position = i * 0.47;
-            var contour = 0.5 + 0.5 * Math.Sin(position + phase);
-            var grain = 0.5 + 0.5 * Math.Sin(i * 1.83 - phase * 1.31 + Math.Sin(i * 0.17));
-            var amplitude = energy * (0.14 + contour * 0.52 + grain * 0.34);
-            var glyph = grain > 0.97 && amplitude > 0.3 ? '*' : amplitude > 0.54 ? ':' : '.';
-
-            // Keep the rope airy at low volume; louder audio adds brighter
-            // points and pushes them farther above or below the center line.
-            if (grain < 0.15 * (1 - energy) + 0.06)
-                glyph = ' ';
-
-            var vertical = Math.Sin(i * 0.39 + phase * 1.12) * energy * (0.15 + contour * 0.85);
-            var baseline = Math.Abs(vertical) < 0.18
-                ? BaselineAlignment.Center
-                : vertical < 0 ? BaselineAlignment.Top : BaselineAlignment.Bottom;
-
-            var alpha = (byte)Math.Clamp(180 + amplitude * 75, 0, 255);
-            var brush = new SolidColorBrush(Color.FromArgb(alpha, baseColor.R, baseColor.G, baseColor.B));
-            brush.Freeze();
-
-            WaveBarsContainer.Inlines.Add(new Run(glyph.ToString())
-            {
-                BaselineAlignment = baseline,
-                FontSize = 7.3 + amplitude * 2.2,
-                Foreground = brush
-            });
-        }
-    }
-
-    private void RenderTranscriptPreview(string text)
+    private void RenderTranscriptPreview(string text, string previous, bool settled = false)
     {
         TranscriptPreviewText.Inlines.Clear();
         var end = text.TrimEnd().Length;
-        var lastWordStart = end;
-        while (lastWordStart > 0 && !char.IsWhiteSpace(text[lastWordStart - 1]))
-            lastWordStart--;
-
-        var stableText = text[..lastWordStart];
-        var pendingWord = text[lastWordStart..end];
-        if (stableText.Length > 0)
+        var pendingStart = end;
+        if (!settled)
         {
-            TranscriptPreviewText.Inlines.Add(new Run(stableText)
-            {
-                Foreground = (SolidColorBrush)FindResource("BrushIslandText")
-            });
+            while (pendingStart > 0 && !char.IsWhiteSpace(text[pendingStart - 1]))
+                pendingStart--;
         }
 
-        if (pendingWord.Length > 0)
+        // Keep unchanged words entirely still, including when a local model
+        // revises the last sentence. Only new or edited words fade in.
+        var common = 0;
+        while (common < Math.Min(previous.Length, pendingStart) && previous[common] == text[common])
+            common++;
+        while (common > 0 && common < pendingStart && !char.IsWhiteSpace(text[common - 1]))
+            common--;
+        if (common > 0) AppendPreviewRun(text[..common], false);
+
+        var start = common;
+        var word = 0;
+        while (start < pendingStart)
         {
-            TranscriptPreviewText.Inlines.Add(new Run(pendingWord)
-            {
-                Foreground = (SolidColorBrush)FindResource("BrushIslandPending")
-            });
+            var next = start;
+            while (next < pendingStart && !char.IsWhiteSpace(text[next])) next++;
+            while (next < pendingStart && char.IsWhiteSpace(text[next])) next++;
+            AppendPreviewRun(text[start..next], false, settled || word >= 6 ? -1 : word);
+            word++;
+            start = next;
+        }
+        if (pendingStart < end)
+        {
+            var pending = text[pendingStart..end];
+            var previousTrimmed = previous.TrimEnd();
+            var previousStart = previousTrimmed.Length;
+            while (previousStart > 0 && !char.IsWhiteSpace(previousTrimmed[previousStart - 1]))
+                previousStart--;
+            var unchanged = previousTrimmed[previousStart..] == pending;
+            AppendPreviewRun(pending, true, unchanged ? -1 : Math.Min(word, 5));
         }
     }
 
-    private static int CountWords(string text) =>
-        text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+    private void AppendPreviewRun(string text, bool pending, int animationIndex = -1)
+    {
+        var resource = (SolidColorBrush)FindResource(pending ? "BrushIslandPending" : "BrushIslandText");
+        if (animationIndex < 0 || !SystemParameters.ClientAreaAnimation)
+        {
+            TranscriptPreviewText.Inlines.Add(new Run(text) { Foreground = resource });
+            return;
+        }
+        var brush = new SolidColorBrush(resource.Color) { Opacity = 0.16 };
+        TranscriptPreviewText.Inlines.Add(new Run(text) { Foreground = brush });
+        var animation = new DoubleAnimation(0.16, 1, new Duration(TimeSpan.FromMilliseconds(220)))
+        {
+            BeginTime = TimeSpan.FromMilliseconds(animationIndex * 24),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        animation.Completed += (_, _) =>
+        {
+            brush.Opacity = 1;
+            brush.BeginAnimation(SolidColorBrush.OpacityProperty, null);
+        };
+        brush.BeginAnimation(SolidColorBrush.OpacityProperty, animation);
+    }
 
     private void ExpandForTranscriptPreview()
     {
         TranscriptPreviewScroll.Visibility = Visibility.Visible;
-        Width = 384;
-        Height = 160;
-        PillBorder.Width = 344;
         PillBorder.MinHeight = 80;
-        WaveBarsContainer.Width = 224;
-        PositionBottomCenter();
-
-        var scaleY = new DoubleAnimation(0.94, 1, new Duration(TimeSpan.FromMilliseconds(260)))
+        if (SystemParameters.ClientAreaAnimation)
         {
-            EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.18 }
-        };
-        PillScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleY);
+            var scaleY = new DoubleAnimation(0.76, 1, new Duration(TimeSpan.FromMilliseconds(240)))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            PillScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleY);
+        }
     }
 
     private void AnimateTranscriptEntry()
