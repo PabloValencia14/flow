@@ -11,14 +11,13 @@ public sealed class GroqRateLimitException(string message) : InvalidOperationExc
 public sealed class GroqTranscriber(HttpClient http)
 {
     public const string Model = "whisper-large-v3";
-    private const string DefaultPrompt = "Dictado breve en español de España. Transcribe literalmente las palabras pronunciadas.";
 
     public async Task<string> TranscribeAsync(byte[] wav, CancellationToken cancellationToken)
         => (await TranscribeDetailedAsync(wav, "flow-dictation.wav", cancellationToken)).Text;
 
     public async Task<IReadOnlyList<LocalWhisperSegment>> TranscribePreviewAsync(byte[] wav, CancellationToken cancellationToken)
     {
-        var result = await TranscribeDetailedInternalAsync(wav, "flow-preview.wav", prompt: null, filterNoSpeech: true, cancellationToken);
+        var result = await TranscribeDetailedInternalAsync(wav, "flow-preview.wav", cancellationToken);
         return result.Segments
             .Select(segment => new LocalWhisperSegment(
                 segment.Text,
@@ -28,13 +27,11 @@ public sealed class GroqTranscriber(HttpClient http)
     }
 
     public Task<MeetingGroqTranscription> TranscribeDetailedAsync(byte[] audio, string fileName, CancellationToken cancellationToken)
-        => TranscribeDetailedInternalAsync(audio, fileName, DefaultPrompt, filterNoSpeech: false, cancellationToken);
+        => TranscribeDetailedInternalAsync(audio, fileName, cancellationToken);
 
     private async Task<MeetingGroqTranscription> TranscribeDetailedInternalAsync(
         byte[] audio,
         string fileName,
-        string? prompt,
-        bool filterNoSpeech,
         CancellationToken cancellationToken)
     {
         const int freeTierUploadLimit = 25 * 1024 * 1024;
@@ -60,8 +57,6 @@ public sealed class GroqTranscriber(HttpClient http)
         content.Add(new StringContent("verbose_json"), "response_format");
         content.Add(new StringContent("segment"), "timestamp_granularities[]");
         content.Add(new StringContent("es"), "language");
-        if (!string.IsNullOrWhiteSpace(prompt))
-            content.Add(new StringContent(prompt), "prompt");
         content.Add(new StringContent("0.0", System.Text.Encoding.UTF8), "temperature");
         request.Content = content;
 
@@ -73,23 +68,52 @@ public sealed class GroqTranscriber(HttpClient http)
             throw new InvalidOperationException($"Groq devolvió {(int)response.StatusCode}: {body[..Math.Min(body.Length, 240)]}");
         using var json = JsonDocument.Parse(body);
         var text = json.RootElement.GetProperty("text").GetString()?.Trim() ?? string.Empty;
-        var segments = json.RootElement.TryGetProperty("segments", out var segmentsElement) && segmentsElement.ValueKind == JsonValueKind.Array
-            ? segmentsElement.EnumerateArray()
-                .Where(item => !filterNoSpeech ||
-                               !item.TryGetProperty("no_speech_prob", out var noSpeech) ||
-                               noSpeech.GetDouble() < 0.75)
-                .Select((item, index) => new MeetingGroqSegment(
-                    index.ToString(), "Persona 1",
-                    (long)Math.Round(item.TryGetProperty("start", out var start) ? start.GetDouble() * 1_000 : 0),
-                    (long)Math.Round(item.TryGetProperty("end", out var end) ? end.GetDouble() * 1_000 : 0),
-                    item.TryGetProperty("text", out var segmentText) ? segmentText.GetString()?.Trim() ?? string.Empty : string.Empty))
-                .Where(item => !string.IsNullOrWhiteSpace(item.Text)).ToArray()
-            : [];
-        var resolvedText = filterNoSpeech && segments.Length > 0
+        var hasSegments = json.RootElement.TryGetProperty("segments", out var segmentsElement) &&
+                          segmentsElement.ValueKind == JsonValueKind.Array;
+        var rawSegmentCount = 0;
+        var segments = new List<MeetingGroqSegment>();
+        if (hasSegments)
+        {
+            foreach (var item in segmentsElement.EnumerateArray())
+            {
+                rawSegmentCount++;
+                var startSeconds = item.TryGetProperty("start", out var startProp) ? startProp.GetDouble() : 0d;
+                var endSeconds = item.TryGetProperty("end", out var endProp) ? endProp.GetDouble() : 0d;
+                var start = TimeSpan.FromSeconds(Math.Max(0d, startSeconds));
+                var end = TimeSpan.FromSeconds(Math.Max(startSeconds, endSeconds));
+
+                if (AudioCapture.TryHasSpeechEnergyInRange(audio, start, end, out var hasSpeechInSegment) &&
+                    !hasSpeechInSegment)
+                {
+                    continue;
+                }
+
+                double? noSpeechProb = item.TryGetProperty("no_speech_prob", out var noSpeechProp) ? noSpeechProp.GetDouble() : null;
+                double? avgLogProb = item.TryGetProperty("avg_logprob", out var logProbProp) ? logProbProp.GetDouble() : null;
+                double? compressionRatio = item.TryGetProperty("compression_ratio", out var compressionProp) ? compressionProp.GetDouble() : null;
+                var rawSegmentText = item.TryGetProperty("text", out var segmentText) ? segmentText.GetString() : null;
+
+                var cleanSegment = DictationTextProcessor.CleanAsrSegmentText(
+                    rawSegmentText,
+                    noSpeechProb,
+                    avgLogProb,
+                    compressionRatio);
+                if (string.IsNullOrWhiteSpace(cleanSegment)) continue;
+
+                segments.Add(new MeetingGroqSegment(
+                    segments.Count.ToString(),
+                    "Persona 1",
+                    (long)Math.Round(start.TotalMilliseconds),
+                    (long)Math.Round(end.TotalMilliseconds),
+                    cleanSegment));
+            }
+        }
+
+        var resolvedText = segments.Count > 0
             ? string.Join(" ", segments.Select(segment => segment.Text)).Trim()
-            : filterNoSpeech
+            : hasSegments && rawSegmentCount > 0
                 ? string.Empty
-                : text;
+                : DictationTextProcessor.RemoveAsrArtifacts(text);
         return new MeetingGroqTranscription(resolvedText, segments);
     }
 

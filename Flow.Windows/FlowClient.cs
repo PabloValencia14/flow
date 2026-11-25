@@ -204,6 +204,11 @@ public sealed class FlowClient : IAsyncDisposable
                     _status("No se ha capturado audio suficiente.");
                     return null;
                 }
+                if (!AudioCapture.HasSpeechEnergy(wav))
+                {
+                    _status("No se detectó voz en el audio.");
+                    return null;
+                }
 
                 _status($"Audio capturado ({wav.Length / 1024d:0.0} KB). Transcribiendo con Groq…");
                 text = await _transcriber.TranscribeAsync(wav, CancellationToken.None);
@@ -398,25 +403,13 @@ public sealed class FlowClient : IAsyncDisposable
 
     private async Task<IReadOnlyList<LocalWhisperSegment>> TranscribePreviewSliceAsync(byte[] wav, CancellationToken cancellationToken)
     {
-        if (!HasSpeechEnergy(wav)) return [];
+        if (!AudioCapture.HasSpeechEnergy(wav)) return [];
         if (_activeTranscriptionProvider == "whisper")
         {
             var session = await EnsureLocalSessionAsync(cancellationToken);
             return session is null ? [] : await session.TranscribePreviewAsync(wav, cancellationToken);
         }
         return await _transcriber.TranscribePreviewAsync(wav, cancellationToken);
-    }
-
-    private static bool HasSpeechEnergy(byte[] wav)
-    {
-        if (wav.Length <= 44) return false;
-        const short threshold = 260; // ~0.008 of full-scale PCM16
-        for (var offset = 44; offset + 1 < wav.Length; offset += 2)
-        {
-            var sample = BitConverter.ToInt16(wav, offset);
-            if (sample >= threshold || sample <= -threshold) return true;
-        }
-        return false;
     }
 
     private async Task ProcessLocalWordTailAsync(CancellationToken cancellationToken)
@@ -571,8 +564,9 @@ public sealed class FlowClient : IAsyncDisposable
             if (totalBytes <= sliceLimitBytes)
             {
                 var fullWav = AudioCapture.ToWhisperWave(snapshot, 0, checked((int)totalBytes));
+                if (!AudioCapture.HasSpeechEnergy(fullWav)) return string.Empty;
                 var fullText = await session.TranscribeFinalAsync(fullWav, cancellationToken);
-                return string.IsNullOrWhiteSpace(fullText) ? _localRawTranscript.Trim() : fullText.Trim();
+                return DictationTextProcessor.RemoveAsrArtifacts(fullText);
             }
 
             var sliceStepBytes = (long)Math.Round(bytesPerSecond * FinalTailSliceMilliseconds / 1_000d);
@@ -589,13 +583,16 @@ public sealed class FlowClient : IAsyncDisposable
                 var end = Math.Min(totalBytes, cursor + sliceStepBytes);
                 end -= end % blockAlign;
                 var wav = AudioCapture.ToWhisperWave(snapshot, checked((int)start), checked((int)end));
-                var chunk = await session.TranscribeFinalAsync(wav, cancellationToken);
-                if (!string.IsNullOrWhiteSpace(chunk))
-                    merged = MergeTranscriptChunks(merged, chunk);
+                if (AudioCapture.HasSpeechEnergy(wav))
+                {
+                    var chunk = await session.TranscribeFinalAsync(wav, cancellationToken);
+                    if (!string.IsNullOrWhiteSpace(chunk))
+                        merged = MergeTranscriptChunks(merged, chunk);
+                }
                 if (end >= totalBytes) break;
                 cursor = end;
             }
-            return string.IsNullOrWhiteSpace(merged) ? _localRawTranscript.Trim() : merged.Trim();
+            return DictationTextProcessor.RemoveAsrArtifacts(merged);
         }
         finally
         {

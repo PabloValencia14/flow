@@ -108,6 +108,52 @@ try
     }
     Check((await store.GetHistoryAsync()).Count == 100, "Se conserva el límite existente de historial");
     Console.WriteLine($"BENCHMARK: 50.000 filas, media de 20 consultas: sin índice {before:F3} ms; con índice {after:F3} ms");
+
+    static byte[] BuildTestWave(int durationMs, Func<int, double, short> sampleGenerator, int sampleRate = 16_000)
+    {
+        var sampleCount = sampleRate * durationMs / 1_000;
+        using var stream = new MemoryStream();
+        using var writer = new NAudio.Wave.WaveFileWriter(stream, new NAudio.Wave.WaveFormat(sampleRate, 16, 1));
+        var pcm = new byte[sampleCount * sizeof(short)];
+        for (var i = 0; i < sampleCount; i++)
+        {
+            var value = sampleGenerator(i, i * 1_000d / sampleRate);
+            BitConverter.TryWriteBytes(pcm.AsSpan(i * sizeof(short), sizeof(short)), value);
+        }
+        writer.Write(pcm, 0, pcm.Length);
+        writer.Flush();
+        return stream.ToArray();
+    }
+
+    var pureSilenceWav = BuildTestWave(2_000, (_, _) => 0);
+    Check(!AudioCapture.HasSpeechEnergy(pureSilenceWav), "La puerta de energía rechaza el silencio puro");
+
+    var singleClickWav = BuildTestWave(2_000, (idx, ms) => ms is >= 500 and < 520 ? (short)(Math.Sin(idx * 0.25) * 4_500) : (short)0);
+    Check(!AudioCapture.HasSpeechEnergy(singleClickWav), "La puerta de energía rechaza un clic aislado menor de 80 ms");
+
+    var stationaryFanWav = BuildTestWave(2_000, (idx, _) => (short)(Math.Sin(idx * 0.12) * 320));
+    Check(!AudioCapture.HasSpeechEnergy(stationaryFanWav), "La puerta de energía rechaza ruido estacionario constante de ventilador");
+
+    var speechThenSilenceWav = BuildTestWave(4_000, (idx, ms) => ms is >= 300 and <= 1_100 ? (short)(Math.Sin(idx * 0.09) * 3_200) : (short)0);
+    Check(AudioCapture.HasSpeechEnergy(speechThenSilenceWav), "La puerta de energía detecta habla sostenida normal");
+    Check(AudioCapture.HasSpeechEnergyInRange(speechThenSilenceWav, TimeSpan.FromMilliseconds(300), TimeSpan.FromMilliseconds(1_100)),
+        "La comprobación por rango conserva el tramo con voz");
+    Check(!AudioCapture.HasSpeechEnergyInRange(speechThenSilenceWav, TimeSpan.FromMilliseconds(1_600), TimeSpan.FromMilliseconds(3_900)),
+        "La comprobación por rango detecta silencio en la cola sin voz");
+
+    Check(DictationTextProcessor.CleanAsrSegmentText("Transcribe literalmente las palabras pronunciadas.") == string.Empty,
+        "El filtro ASR elimina el eco del antiguo prompt");
+    Check(DictationTextProcessor.CleanAsrSegmentText("Gracias por ver el video.") == string.Empty &&
+          DictationTextProcessor.CleanAsrSegmentText("Gracias por ver este vídeo.") == string.Empty &&
+          DictationTextProcessor.CleanAsrSegmentText("Subtítulos realizados por la comunidad de Amara.org") == string.Empty &&
+          DictationTextProcessor.CleanAsrSegmentText("[Música]") == string.Empty,
+        "El filtro ASR elimina alucinaciones típicas de cierre y subtítulos");
+    Check(DictationTextProcessor.CleanAsrSegmentText("Gracias.", noSpeechProbability: 0.35) == string.Empty,
+        "El filtro ASR descarta 'Gracias.' cuando no_speech_prob es elevado");
+    Check(DictationTextProcessor.CleanAsrSegmentText("Gracias.", noSpeechProbability: 0.03, avgLogProb: -0.15) == "Gracias.",
+        "El filtro ASR conserva 'Gracias.' si se pronunció con claridad");
+    Check(DictationTextProcessor.CleanAsrSegmentText("Hola equipo. Gracias por ver el video.") == "Hola equipo.",
+        "El filtro ASR limpia alucinaciones pegadas al final de una frase válida");
 }
 finally
 {

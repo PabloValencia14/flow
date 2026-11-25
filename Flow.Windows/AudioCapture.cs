@@ -242,6 +242,156 @@ public sealed class AudioCapture : IDisposable
         return wav.Length <= 44 ? [] : wav;
     }
 
+    public static bool HasSpeechEnergy(byte[] wav)
+        => TryAnalyzeWaveSpeech(wav, rangeStart: null, rangeEnd: null, out var hasSpeech) && hasSpeech;
+
+    public static bool HasSpeechEnergyInRange(byte[] wav, TimeSpan start, TimeSpan end)
+        => TryAnalyzeWaveSpeech(wav, start, end, out var hasSpeech) && hasSpeech;
+
+    public static bool TryHasSpeechEnergyInRange(byte[] audio, TimeSpan start, TimeSpan end, out bool hasSpeech)
+        => TryAnalyzeWaveSpeech(audio, start, end, out hasSpeech);
+
+    private static bool TryAnalyzeWaveSpeech(byte[] data, TimeSpan? rangeStart, TimeSpan? rangeEnd, out bool hasSpeech)
+    {
+        hasSpeech = false;
+        if (!TryParsePcm16Wave(data, out var channels, out var sampleRate, out var dataOffset, out var dataLength))
+            return false;
+
+        var bytesPerSampleFrame = channels * sizeof(short);
+        var totalSampleFrames = dataLength / bytesPerSampleFrame;
+        if (totalSampleFrames <= 0)
+            return true;
+
+        var framesPerWindow = Math.Max(1, sampleRate / 50); // 20 ms windows
+        var windowCount = totalSampleFrames / framesPerWindow;
+        if (windowCount < 4)
+            return true;
+
+        var windowRms = new double[windowCount];
+        var windowPeak = new double[windowCount];
+        for (var windowIndex = 0; windowIndex < windowCount; windowIndex++)
+        {
+            var baseByte = dataOffset + windowIndex * framesPerWindow * bytesPerSampleFrame;
+            double sumSquares = 0;
+            double maxSample = 0;
+            for (var sampleIndex = 0; sampleIndex < framesPerWindow; sampleIndex++)
+            {
+                var frameOffset = baseByte + sampleIndex * bytesPerSampleFrame;
+                double frameMax = 0;
+                for (var channel = 0; channel < channels; channel++)
+                {
+                    var sample = BitConverter.ToInt16(data, frameOffset + channel * sizeof(short));
+                    var normalized = Math.Abs(sample / 32768d);
+                    if (normalized > frameMax) frameMax = normalized;
+                }
+                sumSquares += frameMax * frameMax;
+                if (frameMax > maxSample) maxSample = frameMax;
+            }
+            windowRms[windowIndex] = Math.Sqrt(sumSquares / framesPerWindow);
+            windowPeak[windowIndex] = maxSample;
+        }
+
+        // Estimate background noise floor from the full clip so stationary fans/HVAC
+        // do not look like voice inside isolated silent segments.
+        var sortedRms = (double[])windowRms.Clone();
+        Array.Sort(sortedRms);
+        var noiseFloor = sortedRms[Math.Min(sortedRms.Length - 1, Math.Max(0, (int)Math.Floor(sortedRms.Length * 0.15)))];
+        var rmsThreshold = noiseFloor < 0.020
+            ? Math.Max(0.0065, noiseFloor * 1.45)
+            : 0.0065;
+        const double peakThreshold = 0.018;
+
+        var startWindow = 0;
+        var endWindow = windowCount - 1;
+        if (rangeStart.HasValue && rangeEnd.HasValue && rangeEnd.Value > rangeStart.Value)
+        {
+            const double paddingMs = 250d;
+            var startMs = Math.Max(0d, rangeStart.Value.TotalMilliseconds - paddingMs);
+            var endMs = rangeEnd.Value.TotalMilliseconds + paddingMs;
+            if (endMs - startMs < 160d)
+            {
+                var mid = (startMs + endMs) / 2d;
+                startMs = Math.Max(0d, mid - 80d);
+                endMs = startMs + 160d;
+            }
+
+            startWindow = Math.Clamp((int)Math.Floor(startMs / 20d), 0, windowCount - 1);
+            endWindow = Math.Clamp((int)Math.Ceiling(endMs / 20d), startWindow, windowCount - 1);
+        }
+
+        var activeWindows = 0;
+        for (var i = startWindow; i <= endWindow; i++)
+        {
+            if (windowRms[i] >= rmsThreshold && windowPeak[i] >= peakThreshold)
+                activeWindows++;
+        }
+
+        hasSpeech = activeWindows >= 4;
+        return true;
+    }
+
+    private static bool TryParsePcm16Wave(
+        byte[] data,
+        out int channels,
+        out int sampleRate,
+        out int dataOffset,
+        out int dataLength)
+    {
+        channels = 0;
+        sampleRate = 0;
+        dataOffset = 0;
+        dataLength = 0;
+
+        if (data.Length < 44 ||
+            data[0] != 'R' || data[1] != 'I' || data[2] != 'F' || data[3] != 'F' ||
+            data[8] != 'W' || data[9] != 'A' || data[10] != 'V' || data[11] != 'E')
+        {
+            return false;
+        }
+
+        var foundFmt = false;
+        var foundData = false;
+        var audioFormat = 0;
+        var bitsPerSample = 0;
+        var cursor = 12;
+
+        while (cursor + 8 <= data.Length)
+        {
+            var chunkSize = BitConverter.ToInt32(data, cursor + 4);
+            if (chunkSize < 0) return false;
+            var payloadOffset = cursor + 8;
+
+            if (data[cursor] == 'f' && data[cursor + 1] == 'm' && data[cursor + 2] == 't' && data[cursor + 3] == ' ')
+            {
+                if (payloadOffset + 16 > data.Length || chunkSize < 16) return false;
+                audioFormat = BitConverter.ToUInt16(data, payloadOffset);
+                channels = BitConverter.ToUInt16(data, payloadOffset + 2);
+                sampleRate = BitConverter.ToInt32(data, payloadOffset + 4);
+                bitsPerSample = BitConverter.ToUInt16(data, payloadOffset + 14);
+                foundFmt = true;
+            }
+            else if (data[cursor] == 'd' && data[cursor + 1] == 'a' && data[cursor + 2] == 't' && data[cursor + 3] == 'a')
+            {
+                dataOffset = payloadOffset;
+                dataLength = Math.Min(chunkSize, Math.Max(0, data.Length - payloadOffset));
+                foundData = true;
+                break;
+            }
+
+            var paddedSize = chunkSize + (chunkSize & 1);
+            var next = payloadOffset + paddedSize;
+            if (next <= cursor) return false;
+            cursor = next;
+        }
+
+        return foundFmt &&
+               foundData &&
+               audioFormat == 1 &&
+               channels >= 1 &&
+               sampleRate >= 8_000 &&
+               bitsPerSample == 16;
+    }
+
     private static WaveFormat CreateOutputFormat(WaveFormat input)
         => new(input.SampleRate, 16, input.Channels);
 

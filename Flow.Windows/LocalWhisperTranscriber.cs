@@ -64,10 +64,15 @@ public static class LocalWhisperTranscriber
                 .WithGreedySamplingStrategy()
                 .WithAudioContextSize(256)
                 .WithNoSpeechThreshold(0.6f)
+                .WithLogProbThreshold(-1.0f)
+                .WithProbabilities()
                 .Build();
             finalProcessor = factory.CreateBuilder()
                 .WithLanguage("es")
                 .WithThreads(threads)
+                .WithNoSpeechThreshold(0.6f)
+                .WithLogProbThreshold(-1.0f)
+                .WithProbabilities()
                 .Build();
             return new LocalWhisperSession(factory, previewProcessor, finalProcessor, NormalizeModel(model));
         }
@@ -120,7 +125,16 @@ public sealed class LocalWhisperSession : IDisposable
             var segments = new List<LocalWhisperSegment>();
             await foreach (var result in _previewProcessor.ProcessAsync(stream).WithCancellation(cancellationToken))
             {
-                var text = result.Text?.Trim();
+                if (AudioCapture.TryHasSpeechEnergyInRange(wav, result.Start, result.End, out var hasSpeechInSegment) &&
+                    !hasSpeechInSegment)
+                {
+                    continue;
+                }
+
+                var text = DictationTextProcessor.CleanAsrSegmentText(
+                    result.Text,
+                    result.NoSpeechProbability,
+                    tokenProbability: result.Probability > 0f ? result.Probability : null);
                 if (!string.IsNullOrWhiteSpace(text))
                     segments.Add(new LocalWhisperSegment(text, result.Start, result.End));
             }
@@ -142,8 +156,18 @@ public sealed class LocalWhisperSession : IDisposable
             var segments = new List<string>();
             await foreach (var result in _finalProcessor.ProcessAsync(stream).WithCancellation(cancellationToken))
             {
-                if (!string.IsNullOrWhiteSpace(result.Text))
-                    segments.Add(result.Text.Trim());
+                if (AudioCapture.TryHasSpeechEnergyInRange(wav, result.Start, result.End, out var hasSpeechInSegment) &&
+                    !hasSpeechInSegment)
+                {
+                    continue;
+                }
+
+                var text = DictationTextProcessor.CleanAsrSegmentText(
+                    result.Text,
+                    result.NoSpeechProbability,
+                    tokenProbability: result.Probability > 0f ? result.Probability : null);
+                if (!string.IsNullOrWhiteSpace(text))
+                    segments.Add(text);
             }
             return string.Join(" ", segments).Trim();
         }
