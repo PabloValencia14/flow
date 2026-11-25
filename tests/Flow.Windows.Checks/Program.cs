@@ -160,6 +160,24 @@ try
           !ThemeManager.ResolveIsLight(AppTheme.Dark, windowsInDarkMode: false) &&
           ThemeManager.ResolveIsLight(AppTheme.Light, windowsInDarkMode: true),
         "El tema del sistema sigue el modo claro u oscuro de Windows mientras los fijos se mantienen");
+
+    static bool IsValidBubbleWave(byte[] wav)
+    {
+        if (wav.Length <= 44 || wav[0] != 'R' || wav[1] != 'I' || wav[2] != 'F' || wav[3] != 'F') return false;
+        short peak = 0;
+        for (var i = 44; i + 1 < wav.Length; i += 2)
+        {
+            var sample = Math.Abs(BitConverter.ToInt16(wav, i));
+            if (sample > peak) peak = sample;
+        }
+        var lastSample = Math.Abs(BitConverter.ToInt16(wav, wav.Length - 2));
+        return peak is > 1_000 and < 15_000 && lastSample < 50;
+    }
+
+    Check(IsValidBubbleWave(SoundManager.CreateStartBubbleWave()) &&
+          IsValidBubbleWave(SoundManager.CreateStopBubbleWave()) &&
+          IsValidBubbleWave(SoundManager.CreatePasteBubbleWave()),
+        "Los sonidos de burbuja al abrir, cerrar y pegar generan WAV PCM válidos sin depender de alertas de Windows");
 }
 finally
 {
