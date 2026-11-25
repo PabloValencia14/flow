@@ -32,11 +32,16 @@ public partial class RecordingIndicatorWindow : Window
         PositionBottomCenter();
     }
 
-    public void ShowRecording()
+    public void ShowRecording(bool showTranscriptPreview = false)
     {
         _durationTimer.Stop();
         _recordStartTime = DateTime.UtcNow;
         DurationLabel.Text = "0:00";
+        Width = showTranscriptPreview ? 600 : 320;
+        Height = showTranscriptPreview ? 180 : 80;
+        PillBorder.Width = showTranscriptPreview ? 540 : 260;
+        TranscriptPreviewText.Text = showTranscriptPreview ? "Esperando la primera transcripción…" : string.Empty;
+        TranscriptPreviewScroll.Visibility = showTranscriptPreview ? Visibility.Visible : Visibility.Collapsed;
         WaveBarsContainer.Visibility = Visibility.Visible;
         PulseDot.Fill = (SolidColorBrush)FindResource("BrushAccentRecording");
         PulseRing.Fill = (SolidColorBrush)FindResource("BrushAccentRecording");
@@ -49,10 +54,24 @@ public partial class RecordingIndicatorWindow : Window
         AnimateIn();
     }
 
-    public void ShowProcessing()
+    public void SetTranscriptPreview(string text)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(() => SetTranscriptPreview(text));
+            return;
+        }
+
+        if (!IsVisible || TranscriptPreviewScroll.Visibility != Visibility.Visible || string.IsNullOrWhiteSpace(text)) return;
+        const int previewLimit = 900;
+        TranscriptPreviewText.Text = text.Length > previewLimit ? $"…{text[^previewLimit..]}" : text;
+        TranscriptPreviewScroll.ScrollToEnd();
+    }
+
+    public void ShowProcessing(bool localTranscription = false)
     {
         _durationTimer.Stop();
-        DurationLabel.Text = "Transcribiendo…";
+        DurationLabel.Text = localTranscription ? "Whisper local…" : "Transcribiendo…";
         WaveBarsContainer.Visibility = Visibility.Collapsed;
         PulseDot.Fill = (SolidColorBrush)FindResource("BrushAccentWarning");
         PulseRing.Fill = (SolidColorBrush)FindResource("BrushAccentWarning");

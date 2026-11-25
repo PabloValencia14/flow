@@ -11,6 +11,10 @@ internal static class FlowSettingKeys
     public const string AppTheme = "app_theme";
     public const string AudioInputDevice = "audio_input_device_id";
     public const string SoundsEnabled = "sounds_enabled";
+    public const string TranscriptionProvider = "local_transcription_provider";
+    public const string TranscriptionModel = "local_transcription_model";
+    public const string CorrectionProvider = "local_correction_provider";
+    public const string OllamaModel = "local_ollama_model";
 }
 
 public sealed record DictationHistoryItem(

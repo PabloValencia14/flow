@@ -634,6 +634,66 @@
                                     </StackPanel>
                                 </Border>
 
+                                <!-- Local speech and text models -->
+                                <Border Style="{StaticResource WisprCard}" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="Modelos locales" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" />
+                                        <TextBlock Text="Elige por separado cómo transcribir y cómo corregir. Los modelos descargados se guardan en este equipo." FontSize="12.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,3,0,12" TextWrapping="Wrap" />
+
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="12" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="Transcripción" FontSize="11.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,0,0,4" />
+                                                <ComboBox x:Name="TranscriptionProviderComboBox" Background="{DynamicResource BrushBgInput}" Foreground="{DynamicResource BrushTextPrimary}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" Padding="8,6" SelectionChanged="LocalEngineSelection_Changed">
+                                                    <ComboBoxItem Content="Groq (nube)" Tag="groq" />
+                                                    <ComboBoxItem Content="Whisper (local)" Tag="whisper" />
+                                                </ComboBox>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Corrección" FontSize="11.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,0,0,4" />
+                                                <ComboBox x:Name="CorrectionProviderComboBox" Background="{DynamicResource BrushBgInput}" Foreground="{DynamicResource BrushTextPrimary}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" Padding="8,6" SelectionChanged="LocalEngineSelection_Changed">
+                                                    <ComboBoxItem Content="Groq (nube)" Tag="groq" />
+                                                    <ComboBoxItem Content="Ollama (local)" Tag="ollama" />
+                                                </ComboBox>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <Grid Margin="0,10,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="12" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="Modelo Whisper" FontSize="11.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,0,0,4" />
+                                                <ComboBox x:Name="WhisperModelComboBox" Background="{DynamicResource BrushBgInput}" Foreground="{DynamicResource BrushTextPrimary}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" Padding="8,6" SelectionChanged="LocalEngineSelection_Changed">
+                                                    <ComboBoxItem Content="small · más preciso" Tag="small" />
+                                                    <ComboBoxItem Content="base · más ligero" Tag="base" />
+                                                    <ComboBoxItem Content="tiny · mínimo" Tag="tiny" />
+                                                </ComboBox>
+                                                <TextBlock x:Name="WhisperModelStatus" Text="Modelo sin descargar" FontSize="11" Foreground="{DynamicResource BrushTextMuted}" Margin="0,4,0,6" />
+                                                <Button x:Name="DownloadWhisperModelButton" Content="Descargar modelo" Style="{StaticResource WisprGhostButton}" HorizontalAlignment="Left" Click="DownloadWhisperModel_Click" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="Modelo Ollama" FontSize="11.5" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,0,0,4" />
+                                                <TextBox x:Name="OllamaModelInput" Text="qwen3:4b-instruct" Style="{StaticResource WisprTextBox}" />
+                                                <TextBlock Text="Ollama debe estar instalado y en ejecución." FontSize="11" Foreground="{DynamicResource BrushTextMuted}" Margin="0,4,0,6" />
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Button Content="Guardar" Style="{StaticResource WisprGhostButton}" HorizontalAlignment="Left" Click="SaveOllamaModel_Click" />
+                                                    <Button x:Name="DownloadOllamaModelButton" Content="Descargar" Style="{StaticResource WisprGhostButton}" Margin="8,0,0,0" Click="DownloadOllamaModel_Click" />
+                                                    <Button Content="Comprobar" Style="{StaticResource WisprGhostButton}" Margin="8,0,0,0" Click="CheckOllama_Click" />
+                                                </StackPanel>
+                                                <Button Content="Descargar Ollama para Windows" Style="{StaticResource WisprGhostButton}" HorizontalAlignment="Left" Margin="0,6,0,0" Click="OpenOllamaDownload_Click" />
+                                                <TextBlock x:Name="OllamaModelStatus" Text="Solo se conecta a Ollama en este equipo." FontSize="11" Foreground="{DynamicResource BrushTextMuted}" Margin="0,6,0,0" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
                                 <!-- Auto-Start with Windows -->
                                 <Border Style="{StaticResource WisprCard}" Margin="0,0,0,12">
                                     <Grid>

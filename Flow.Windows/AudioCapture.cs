@@ -1,10 +1,12 @@
 using System.IO;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 
 namespace Flow.Windows;
 
 public sealed record AudioDeviceInfo(string Id, string Name, bool IsDefault);
+public sealed record AudioCaptureSnapshot(byte[] Raw, WaveFormat Format, long TotalLengthBytes, long StartByteOffset);
 
 public sealed class AudioCapture : IDisposable
 {
@@ -147,7 +149,27 @@ public sealed class AudioCapture : IDisposable
 
     public async Task<byte[]> StopAsWaveAsync()
     {
-        if (!_started || _input == null) return [];
+        var snapshot = await StopAsSnapshotAsync();
+        if (snapshot.Raw.Length == 0)
+            return [];
+
+        var pcm = ConvertToPcm16(snapshot.Raw, snapshot.Format);
+        if (pcm.Length == 0)
+            return [];
+
+        using var output = new MemoryStream();
+        using (var writer = new WaveFileWriter(output, CreateOutputFormat(snapshot.Format)))
+        {
+            writer.Write(pcm, 0, pcm.Length);
+        }
+        var wav = output.ToArray();
+        return wav.Length <= 44 ? [] : wav;
+    }
+
+    public async Task<AudioCaptureSnapshot> StopAsSnapshotAsync(long startByte = 0, long? endByte = null)
+    {
+        if (!_started || _input == null)
+            return GetSnapshot(startByte, endByte);
 
         var recordingStopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         EventHandler<StoppedEventArgs> stoppedHandler = (_, _) => recordingStopped.TrySetResult();
@@ -163,29 +185,61 @@ public sealed class AudioCapture : IDisposable
             _started = false;
         }
 
-        byte[] raw;
-        WaveFormat inputFormat;
+        return GetSnapshot(startByte, endByte);
+    }
+
+    public AudioCaptureSnapshot GetSnapshot(long startByte = 0, long? endByte = null)
+    {
         lock (_audioLock)
         {
-            if (_audio.Length == 0)
-                return [];
-            raw = _audio.ToArray();
-            inputFormat = _input.WaveFormat;
+            var format = _input?.WaveFormat ?? new WaveFormat(16_000, 16, 1);
+            var totalLength = _audio.Length;
+            var start = Math.Clamp(startByte, 0, totalLength);
+            var end = Math.Clamp(endByte ?? totalLength, start, totalLength);
+            var count = checked((int)(end - start));
+            var raw = new byte[count];
+            if (count > 0)
+                Buffer.BlockCopy(_audio.GetBuffer(), checked((int)start), raw, 0, count);
+            return new AudioCaptureSnapshot(raw, format, totalLength, start);
         }
+    }
 
-        var pcm = ConvertToPcm16(raw, inputFormat);
-        if (pcm.Length == 0)
-            return [];
+    public static byte[] ToWhisperWave(AudioCaptureSnapshot snapshot, int startByte, int endByte)
+    {
+        var blockAlign = Math.Max(1, snapshot.Format.BlockAlign);
+        var start = Math.Clamp(startByte, 0, snapshot.Raw.Length);
+        var end = Math.Clamp(endByte, start, snapshot.Raw.Length);
+        start -= start % blockAlign;
+        end -= end % blockAlign;
+        if (end - start < blockAlign) return [];
 
+        var raw = snapshot.Raw.AsSpan(start, end - start).ToArray();
+        using var sourceStream = new RawSourceWaveStream(new MemoryStream(raw, writable: false), snapshot.Format);
+        ISampleProvider mono = new MonoDownmixSampleProvider(sourceStream.ToSampleProvider());
+        ISampleProvider resampled = mono.WaveFormat.SampleRate == 16_000
+            ? mono
+            : new WdlResamplingSampleProvider(mono, 16_000);
+
+        var samples = new List<float>();
+        var buffer = new float[4096];
+        int read;
+        while ((read = resampled.Read(buffer, 0, buffer.Length)) > 0)
+            for (var index = 0; index < read; index++) samples.Add(buffer[index]);
+        if (samples.Count == 0) return [];
+
+        var pcm = new byte[samples.Count * sizeof(short)];
+        for (var index = 0; index < samples.Count; index++)
+        {
+            var value = (short)Math.Round(Math.Clamp(samples[index], -1f, 1f) * short.MaxValue);
+            BitConverter.TryWriteBytes(pcm.AsSpan(index * sizeof(short), sizeof(short)), value);
+        }
         using var output = new MemoryStream();
-        using (var writer = new WaveFileWriter(output, CreateOutputFormat(inputFormat)))
+        using (var writer = new WaveFileWriter(output, new WaveFormat(16_000, 16, 1)))
         {
             writer.Write(pcm, 0, pcm.Length);
         }
         var wav = output.ToArray();
-        if (wav.Length <= 44)
-            return [];
-        return wav;
+        return wav.Length <= 44 ? [] : wav;
     }
 
     private static WaveFormat CreateOutputFormat(WaveFormat input)
@@ -229,6 +283,28 @@ public sealed class AudioCapture : IDisposable
             BitConverter.TryWriteBytes(pcm.AsSpan(i * sizeof(short), sizeof(short)), value);
         }
         return pcm;
+    }
+
+    private sealed class MonoDownmixSampleProvider(ISampleProvider source) : ISampleProvider
+    {
+        private readonly int _channels = source.WaveFormat.Channels;
+        public WaveFormat WaveFormat { get; } = WaveFormat.CreateIeeeFloatWaveFormat(source.WaveFormat.SampleRate, 1);
+
+        public int Read(float[] buffer, int offset, int count)
+        {
+            if (_channels == 1) return source.Read(buffer, offset, count);
+            var interleaved = new float[count * _channels];
+            var sourceRead = source.Read(interleaved, 0, interleaved.Length);
+            var frames = sourceRead / _channels;
+            for (var frame = 0; frame < frames; frame++)
+            {
+                var total = 0f;
+                for (var channel = 0; channel < _channels; channel++)
+                    total += interleaved[frame * _channels + channel];
+                buffer[offset + frame] = total / _channels;
+            }
+            return frames;
+        }
     }
 
     public void Dispose() => _input?.Dispose();

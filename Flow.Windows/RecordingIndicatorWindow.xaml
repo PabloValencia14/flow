@@ -1,7 +1,7 @@
 <Window x:Class="Flow.Windows.RecordingIndicatorWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Width="320" Height="80"
+        Width="600" Height="180"
         WindowStyle="None"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
@@ -13,11 +13,11 @@
     <Grid>
         <!-- Dynamic Island Pill Container with generous margin to eliminate shadow clipping -->
         <Border x:Name="PillBorder"
-                Width="260" Height="44"
+                Width="540" MinHeight="44" Height="Auto"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
-                Padding="6,3"
-                CornerRadius="22"
+                Padding="8,6"
+                CornerRadius="20"
                 Background="{DynamicResource BrushFlowPillBg}"
                 BorderBrush="{DynamicResource BrushBorder}"
                 BorderThickness="1.2"
@@ -34,6 +34,10 @@
             </Border.Effect>
 
             <Grid VerticalAlignment="Center">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <!-- Left: Cancel Button -->
                     <ColumnDefinition Width="28" />
@@ -44,7 +48,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Left: Cancel Button (✕) -->
-                <Button x:Name="CancelBtn" Grid.Column="0" Width="26" Height="26" Cursor="Hand" Click="CancelBtn_Click" ToolTip="Cancelar dictado (Esc)">
+                <Button x:Name="CancelBtn" Grid.Row="0" Grid.Column="0" Width="26" Height="26" Cursor="Hand" Click="CancelBtn_Click" ToolTip="Cancelar dictado (Esc)">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="b" Background="{DynamicResource BrushBgCardHover}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="13">
@@ -60,7 +64,7 @@
                 </Button>
 
                 <!-- Center: Audio Recorder Visualizer Graph -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <!-- Glowing Pulse Dot -->
                     <Grid Width="12" Height="12" Margin="0,0,6,0">
                         <Ellipse x:Name="PulseRing" Width="12" Height="12" Fill="{DynamicResource BrushAccentRecording}" Opacity="0.35" RenderTransformOrigin="0.5,0.5">
@@ -99,8 +103,15 @@
                     </StackPanel>
                 </StackPanel>
 
+                <ScrollViewer x:Name="TranscriptPreviewScroll" Grid.Row="1" Grid.Column="1"
+                              Visibility="Collapsed" MaxHeight="78" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled" Margin="8,8,8,2">
+                    <TextBlock x:Name="TranscriptPreviewText" Text="" Foreground="{DynamicResource BrushTextSecondary}"
+                               FontSize="12" LineHeight="17" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
+                </ScrollViewer>
+
                 <!-- Right: Finish Button (✓) -->
-                <Button x:Name="FinishBtn" Grid.Column="2" Width="26" Height="26" Cursor="Hand" Click="FinishBtn_Click" ToolTip="Terminar y pegar">
+                <Button x:Name="FinishBtn" Grid.Row="0" Grid.Column="2" Width="26" Height="26" Cursor="Hand" Click="FinishBtn_Click" ToolTip="Terminar y pegar">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="b" Background="{DynamicResource BrushWisprGradient}" CornerRadius="13">

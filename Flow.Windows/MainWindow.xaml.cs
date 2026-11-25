@@ -30,6 +30,7 @@ public partial class MainWindow : Window
     private bool _loadingTheme = true;
     private bool _loadingMicrophone = true;
     private bool _loadingSounds = true;
+    private bool _loadingLocalEngineSettings = true;
     // XAML can raise Checked/Unchecked while InitializeComponent is still
     // wiring named controls. Ignore those early events until Loaded.
     private bool _loadingCorrectionOptions = true;
@@ -60,6 +61,7 @@ public partial class MainWindow : Window
 
         // Connect audio levels to floating Dynamic Island recorder graph
         _client.AudioLevelChanged += level => _flowBar.SetAudioLevel(level);
+        _client.TranscriptPreviewChanged += text => Dispatcher.BeginInvoke(() => _flowBar.SetTranscriptPreview(text));
 
         // Connect shortcut hook events (Push-to-Talk and Double-Tap with Ctrl + Win)
         _shortcut.StartRecording += () =>
@@ -160,6 +162,7 @@ public partial class MainWindow : Window
 
             await LoadCorrectionOptionsAsync();
             await LoadStyleSettingsAsync();
+            await LoadLocalEngineSettingsAsync();
 
             ServerUrlInput.Text = await _client.GetSyncServerUrlAsync() ?? string.Empty;
             ServerTokenInput.Text = _client.HasFlowHubToken ? "●●●●●●●●" : string.Empty;
@@ -586,7 +589,7 @@ public partial class MainWindow : Window
             _client.SetPasteTarget(_lastExternalWindow, _lastExternalAppName);
             await _client.StartDictationAsync();
             if (!fromShortcut) _shortcut.NotifyExternalStart();
-            _flowBar.ShowRecording();
+            _flowBar.ShowRecording(_client.UsesLocalTranscription);
         }
         catch (Exception error)
         {
@@ -604,7 +607,7 @@ public partial class MainWindow : Window
         }
         try
         {
-            _flowBar.ShowProcessing();
+            _flowBar.ShowProcessing(_client.UsesLocalTranscription);
             var result = await _client.FinishDictationAsync();
             if (!string.IsNullOrEmpty(result))
             {
@@ -1015,6 +1018,177 @@ public partial class MainWindow : Window
     #endregion
 
     #region Settings Logic
+    private async Task LoadLocalEngineSettingsAsync()
+    {
+        _loadingLocalEngineSettings = true;
+        try
+        {
+            SetComboBoxTag(TranscriptionProviderComboBox,
+                await _client.Outbox.GetSettingAsync(FlowSettingKeys.TranscriptionProvider, "groq") ?? "groq");
+            SetComboBoxTag(CorrectionProviderComboBox,
+                await _client.Outbox.GetSettingAsync(FlowSettingKeys.CorrectionProvider, "groq") ?? "groq");
+            SetComboBoxTag(WhisperModelComboBox,
+                await _client.Outbox.GetSettingAsync(FlowSettingKeys.TranscriptionModel, LocalWhisperTranscriber.DefaultModel) ?? LocalWhisperTranscriber.DefaultModel);
+            OllamaModelInput.Text = await _client.Outbox.GetSettingAsync(FlowSettingKeys.OllamaModel, LocalOllamaCorrector.DefaultModel)
+                ?? LocalOllamaCorrector.DefaultModel;
+        }
+        finally
+        {
+            _loadingLocalEngineSettings = false;
+            RefreshWhisperModelStatus();
+        }
+    }
+
+    private async void LocalEngineSelection_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingLocalEngineSettings || _client?.Outbox == null) return;
+        try
+        {
+            if (ReferenceEquals(sender, TranscriptionProviderComboBox))
+            {
+                var provider = GetComboBoxTag(TranscriptionProviderComboBox);
+                if (provider is not null) await _client.Outbox.SetSettingAsync(FlowSettingKeys.TranscriptionProvider, provider);
+                UpdateStatus(provider == "whisper" ? "Whisper local seleccionado para los nuevos dictados." : "Groq seleccionado para los nuevos dictados.");
+            }
+            else if (ReferenceEquals(sender, CorrectionProviderComboBox))
+            {
+                var provider = GetComboBoxTag(CorrectionProviderComboBox);
+                if (provider is not null) await _client.Outbox.SetSettingAsync(FlowSettingKeys.CorrectionProvider, provider);
+                UpdateStatus(provider == "ollama" ? "Ollama local seleccionado para la corrección." : "Groq seleccionado para la corrección.");
+            }
+            else if (ReferenceEquals(sender, WhisperModelComboBox))
+            {
+                var model = GetComboBoxTag(WhisperModelComboBox);
+                if (model is not null) await _client.Outbox.SetSettingAsync(FlowSettingKeys.TranscriptionModel, model);
+                RefreshWhisperModelStatus();
+            }
+        }
+        catch (Exception error) { UpdateStatus($"No se pudo guardar la opción local: {error.Message}"); }
+    }
+
+    private async void DownloadWhisperModel_Click(object sender, RoutedEventArgs e)
+    {
+        var model = GetComboBoxTag(WhisperModelComboBox) ?? LocalWhisperTranscriber.DefaultModel;
+        DownloadWhisperModelButton.IsEnabled = false;
+        WhisperModelStatus.Text = $"Descargando Whisper {model}…";
+        try
+        {
+            await LocalWhisperTranscriber.DownloadModelAsync(model);
+            RefreshWhisperModelStatus();
+            UpdateStatus($"Modelo Whisper {model} descargado en este equipo.");
+        }
+        catch (Exception error)
+        {
+            WhisperModelStatus.Text = "No se pudo descargar el modelo.";
+            UpdateStatus($"Error al descargar Whisper: {error.Message}");
+        }
+        finally { DownloadWhisperModelButton.IsEnabled = true; }
+    }
+
+    private async void SaveOllamaModel_Click(object sender, RoutedEventArgs e)
+    {
+        var model = OllamaModelInput.Text.Trim();
+        if (!IsValidOllamaModelName(model))
+        {
+            UpdateStatus("Nombre de modelo Ollama no válido.");
+            return;
+        }
+        try
+        {
+            OllamaModelInput.Text = model;
+            await _client.Outbox.SetSettingAsync(FlowSettingKeys.OllamaModel, model);
+            OllamaModelStatus.Text = $"Modelo seleccionado: {model}.";
+            UpdateStatus("Modelo Ollama guardado en este equipo.");
+        }
+        catch (Exception error) { UpdateStatus($"No se pudo guardar el modelo Ollama: {error.Message}"); }
+    }
+
+    private async void DownloadOllamaModel_Click(object sender, RoutedEventArgs e)
+    {
+        var model = OllamaModelInput.Text.Trim();
+        if (!IsValidOllamaModelName(model))
+        {
+            UpdateStatus("Nombre de modelo Ollama no válido.");
+            return;
+        }
+
+        DownloadOllamaModelButton.IsEnabled = false;
+        try
+        {
+            await _client.Outbox.SetSettingAsync(FlowSettingKeys.OllamaModel, model);
+            OllamaModelStatus.Text = $"Descargando {model} desde Ollama…";
+            var progress = new Progress<(long Completed, long Total)>(value =>
+            {
+                var percent = (int)Math.Clamp(value.Completed * 100d / value.Total, 0, 100);
+                OllamaModelStatus.Text = $"Descargando {model}: {percent}%";
+            });
+            using var corrector = new LocalOllamaCorrector();
+            await corrector.PullModelAsync(model, progress);
+            OllamaModelStatus.Text = $"{model} disponible en Ollama.";
+            UpdateStatus($"Modelo Ollama {model} descargado.");
+        }
+        catch (Exception error)
+        {
+            OllamaModelStatus.Text = "Ollama no disponible o no pudo descargar el modelo.";
+            UpdateStatus($"Error al descargar desde Ollama: {error.Message}");
+        }
+        finally { DownloadOllamaModelButton.IsEnabled = true; }
+    }
+
+    private async void CheckOllama_Click(object sender, RoutedEventArgs e)
+    {
+        OllamaModelStatus.Text = "Comprobando Ollama local…";
+        try
+        {
+            using var corrector = new LocalOllamaCorrector();
+            var models = await corrector.GetInstalledModelsAsync();
+            var selected = OllamaModelInput.Text.Trim();
+            var installed = models.Any(model => string.Equals(model, selected, StringComparison.OrdinalIgnoreCase) ||
+                                                model.StartsWith(selected + ":", StringComparison.OrdinalIgnoreCase));
+            OllamaModelStatus.Text = models.Count == 0
+                ? "Ollama responde, pero no hay modelos descargados."
+                : installed
+                    ? $"Ollama disponible · {selected} instalado."
+                    : $"Ollama disponible · {models.Count} modelo(s); {selected} no está instalado.";
+        }
+        catch (Exception error)
+        {
+            OllamaModelStatus.Text = "Ollama no responde en este equipo.";
+            UpdateStatus($"No se pudo conectar con Ollama: {error.Message}");
+        }
+    }
+
+    private void OpenOllamaDownload_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("https://ollama.com/download/windows") { UseShellExecute = true });
+        }
+        catch (Exception error) { UpdateStatus($"No se pudo abrir la página de Ollama: {error.Message}"); }
+    }
+
+    private void RefreshWhisperModelStatus()
+    {
+        if (WhisperModelStatus is null) return;
+        var model = GetComboBoxTag(WhisperModelComboBox) ?? LocalWhisperTranscriber.DefaultModel;
+        WhisperModelStatus.Text = LocalWhisperTranscriber.IsModelInstalled(model)
+            ? $"Whisper {model} instalado en este equipo."
+            : $"Whisper {model} sin descargar.";
+    }
+
+    private static string? GetComboBoxTag(ComboBox comboBox) =>
+        (comboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+
+    private static void SetComboBoxTag(ComboBox comboBox, string value)
+    {
+        comboBox.SelectedItem = comboBox.Items.OfType<ComboBoxItem>()
+            .FirstOrDefault(item => string.Equals(item.Tag?.ToString(), value, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsValidOllamaModelName(string model) =>
+        !string.IsNullOrWhiteSpace(model) && model.Length <= 120 &&
+        model.All(character => char.IsAsciiLetterOrDigit(character) || character is ':' or '-' or '_' or '.' or '/');
+
     private void PopulateMicrophones(string? savedDeviceId)
     {
         _loadingMicrophone = true;

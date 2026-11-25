@@ -91,6 +91,37 @@ párrafos/listas. Los snippets definidos en Flow se expanden después de la corr
 coincidencia de palabra completa, para no enviar su contenido privado al
 modelo.
 
+## Motores locales
+
+En `Ajustes > Modelos locales` se pueden seleccionar por separado el motor de
+transcripción y el de corrección. Whisper se ejecuta en el equipo y permite
+mostrar una vista previa progresiva durante la grabación; el texto se puede
+revisar en la barra flotante y se pega una sola vez al terminar. La vista se
+actualiza por fragmentos breves, por lo que el modelo puede revisar palabras de
+los últimos segundos antes de que se inserte el resultado.
+
+Los modelos Whisper `tiny`, `base` y `small` se descargan desde Ajustes a
+`%LOCALAPPDATA%\Flow\Models`. El instalador de Flow no incluye los pesos. El
+paquete usa el runtime CPU de Whisper.net y no necesita CUDA; la primera
+descarga sí requiere conexión a Internet. En Windows puede ser necesario el
+Microsoft Visual C++ Redistributable 2022 x64 para cargar el runtime nativo.
+
+Para la corrección local hay que instalar Ollama para Windows y mantenerlo en
+ejecución. Flow se conecta únicamente a `127.0.0.1:11434`; desde Ajustes se puede
+comprobar la instalación y descargar el modelo elegido (por defecto,
+`qwen3:4b-instruct`). La descarga inicial requiere Internet; después, la
+inferencia de Whisper y las peticiones de corrección se procesan en el equipo.
+
+Cada selector es independiente. Por ejemplo, se puede combinar Whisper local
+con corrección Groq, o transcripción Groq con corrección Ollama. Al elegir un
+motor local Flow no reintenta la petición en la nube si el modelo falta o falla:
+Whisper muestra un error de configuración y Ollama conserva la transcripción
+sin corregir. El modo local de dictado no cambia la importación de reuniones,
+que sigue usando los servicios configurados para esa función. Las opciones de
+motor y modelo se guardan solo en SQLite local y no se sincronizan con FlowHub.
+El texto final sí puede sincronizarse si FlowHub está configurado; la selección
+de motores no envía el audio de dictados breves.
+
 Por ejemplo, un dictado como «Bueno, yo lo que quería comentarte es que, a ver,
 el informe lo terminamos mañana, bueno, el jueves» puede quedar como «El
 informe lo terminamos el jueves». En un perfil formal o profesional, el mismo
@@ -123,7 +154,8 @@ Windows pueda tener del icono de una versión anterior.
 
 Para la primera prueba se puede definir `FLOW_GROQ_API_KEY` solo en la sesión
 del proceso. El modo previsto usa Windows Credential Manager con el destino
-`Flow/GroqApiKey`; la clave no entra en SQLite, logs ni el repositorio.
+`Flow/GroqApiKey`; la clave no entra en SQLite, logs ni el repositorio. Si se
+usa Whisper y Ollama, no hace falta proporcionar una clave de Groq.
 
 El Hub es opcional para dictar: si no está configurado o no responde, el texto
 se inserta y queda en la cola local. La URL se guarda en la clave local
