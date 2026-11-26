@@ -14,6 +14,7 @@ El proyecto está pensado para quienes quieren controlar sus datos y, al mismo t
 
 - Captura el micrófono predeterminado o el dispositivo seleccionado por el usuario.
 - Transcribe en español con Groq Whisper.
+- Puede transcribir progresivamente con Whisper local y corregir con un modelo Ollama local; ambos motores se pueden elegir por separado.
 - Corrige errores fonéticos cuando el contexto lo permite.
 - Reescribe el lenguaje oral o informal como texto natural, con el estilo elegido.
 - Resuelve autocorrecciones habladas, reinicios de pensamiento, repeticiones y muletillas.
@@ -57,7 +58,7 @@ El instalador:
 1. Instala Flow en `%LOCALAPPDATA%\Programs\Flow`.
 2. Crea el acceso directo del menú Inicio.
 3. Configura el arranque residente en segundo plano.
-4. Solicita la clave de Groq.
+4. Ofrece guardar una clave de Groq, que se puede omitir si se van a usar los modelos locales.
 
 La clave se guarda en el Administrador de credenciales de Windows con el destino `Flow/GroqApiKey`. No se almacena en SQLite, en archivos de texto, en los argumentos del proceso ni en el repositorio.
 
@@ -107,7 +108,10 @@ acceptance.md    Criterios de validación del proyecto
 
 ## Privacidad y límites conocidos
 
-- Se necesita una clave de Groq para transcribir y corregir audio.
+- Los motores Groq requieren una clave; Whisper local y Ollama no la necesitan.
+- La primera descarga de los modelos locales necesita Internet. Después, la transcripción y corrección local se ejecutan en el equipo.
+- Ollama para Windows se instala por separado y debe estar en ejecución para corregir con modelos locales.
+- FlowHub es opcional. Si está configurado, el texto final puede sincronizarse aunque ambos modelos se ejecuten localmente; las preferencias de proveedor y modelo son locales.
 - La cuenta gratuita de Groq limita las subidas de audio a 25 MB por petición en esta versión.
 - La corrección contextual depende del modelo disponible en Groq; si falla, Flow conserva la transcripción literal y aplica la limpieza local.
 - FlowHub es opcional y no recibe audio de dictados breves; el audio de reuniones solo se sincroniza cuando el usuario configura esa función.

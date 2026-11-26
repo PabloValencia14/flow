@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Media;
+using Microsoft.Win32;
 
 namespace Flow.Windows;
 
@@ -12,24 +13,87 @@ public enum AppTheme
 
 public static class ThemeManager
 {
+    private static readonly object TrackingLock = new();
+    private static bool _systemTrackingRegistered;
+
     public static AppTheme CurrentTheme { get; private set; } = AppTheme.Dark;
     public static bool IsLightActive { get; private set; }
 
     public static event Action<AppTheme, bool>? ThemeChanged;
 
+    public static bool ResolveIsLight(AppTheme mode, bool windowsInDarkMode) => mode switch
+    {
+        AppTheme.Light => true,
+        AppTheme.System => !windowsInDarkMode,
+        _ => false
+    };
+
     public static void ApplyTheme(AppTheme mode)
     {
         CurrentTheme = mode;
-        var isLight = mode == AppTheme.Light;
-
-        if (mode == AppTheme.System)
-        {
-            isLight = !IsWindowsInDarkMode();
-        }
+        var isLight = ResolveIsLight(mode, IsWindowsInDarkMode());
 
         IsLightActive = isLight;
+        if (Application.Current is not null)
+            EnsureSystemThemeTracking();
         UpdateBrushes(isLight);
         ThemeChanged?.Invoke(CurrentTheme, isLight);
+    }
+
+    public static bool SyncSystemThemeIfNeeded()
+    {
+        if (CurrentTheme != AppTheme.System) return false;
+        var shouldBeLight = !IsWindowsInDarkMode();
+        if (shouldBeLight == IsLightActive) return false;
+
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess())
+        {
+            dispatcher.BeginInvoke(() => SyncSystemThemeIfNeeded());
+            return true;
+        }
+
+        ApplyTheme(AppTheme.System);
+        return true;
+    }
+
+    public static void EnsureSystemThemeTracking()
+    {
+        lock (TrackingLock)
+        {
+            if (_systemTrackingRegistered) return;
+            SystemEvents.UserPreferenceChanged += OnSystemUserPreferenceChanged;
+            SystemEvents.PowerModeChanged += OnSystemPowerModeChanged;
+            _systemTrackingRegistered = true;
+        }
+    }
+
+    public static void StopSystemThemeTracking()
+    {
+        lock (TrackingLock)
+        {
+            if (!_systemTrackingRegistered) return;
+            SystemEvents.UserPreferenceChanged -= OnSystemUserPreferenceChanged;
+            SystemEvents.PowerModeChanged -= OnSystemPowerModeChanged;
+            _systemTrackingRegistered = false;
+        }
+    }
+
+    private static void OnSystemUserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
+    {
+        if (e.Category is UserPreferenceCategory.General or
+            UserPreferenceCategory.Color or
+            UserPreferenceCategory.VisualStyle or
+            UserPreferenceCategory.Desktop)
+        {
+            SyncSystemThemeIfNeeded();
+        }
+    }
+
+    private static void OnSystemPowerModeChanged(object? sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == PowerModes.Resume)
+            SyncSystemThemeIfNeeded();
     }
 
     public static void ToggleTheme()
@@ -42,21 +106,30 @@ public static class ThemeManager
         var app = Application.Current;
         if (app == null) return;
 
-        // Monochrome palette. Neutral grays keep hierarchy and contrast without
-        // introducing an accent hue into the interface.
-        var bgMain = isLight ? Color.FromRgb(247, 247, 247) : Color.FromRgb(11, 11, 11);
-        var bgSidebar = isLight ? Color.FromRgb(238, 238, 238) : Color.FromRgb(17, 17, 17);
-        var bgCard = isLight ? Color.FromRgb(255, 255, 255) : Color.FromRgb(24, 24, 24);
-        var bgCardHover = isLight ? Color.FromRgb(232, 232, 232) : Color.FromRgb(36, 36, 36);
-        var bgInput = isLight ? Color.FromRgb(255, 255, 255) : Color.FromRgb(18, 18, 18);
-        var border = isLight ? Color.FromRgb(216, 216, 216) : Color.FromRgb(43, 43, 43);
-        var borderHover = isLight ? Color.FromRgb(184, 184, 184) : Color.FromRgb(72, 72, 72);
-        var textPrimary = isLight ? Color.FromRgb(17, 17, 17) : Color.FromRgb(245, 245, 245);
-        var textSecondary = isLight ? Color.FromRgb(74, 74, 74) : Color.FromRgb(181, 181, 181);
-        var textMuted = isLight ? Color.FromRgb(118, 118, 118) : Color.FromRgb(122, 122, 122);
-        var accent = isLight ? Color.FromRgb(17, 17, 17) : Color.FromRgb(245, 245, 245);
-        var accentSoft = isLight ? Color.FromRgb(64, 64, 64) : Color.FromRgb(214, 214, 214);
-        var onAccent = isLight ? Color.FromRgb(255, 255, 255) : Color.FromRgb(11, 11, 11);
+        // Evergreen surfaces keep the interface calm; each operational state has
+        // its own color so recording, completion, warnings, and sync are distinct.
+        var bgMain = isLight ? Color.FromRgb(240, 244, 235) : Color.FromRgb(18, 25, 22);
+        var bgSidebar = isLight ? Color.FromRgb(221, 233, 219) : Color.FromRgb(27, 39, 32);
+        var bgCard = isLight ? Color.FromRgb(249, 251, 246) : Color.FromRgb(32, 46, 37);
+        var bgCardHover = isLight ? Color.FromRgb(229, 239, 222) : Color.FromRgb(43, 59, 48);
+        var bgInput = isLight ? Color.FromRgb(251, 252, 248) : Color.FromRgb(23, 31, 26);
+        var border = isLight ? Color.FromRgb(193, 210, 190) : Color.FromRgb(60, 80, 65);
+        var borderHover = isLight ? Color.FromRgb(119, 150, 120) : Color.FromRgb(98, 122, 101);
+        var textPrimary = isLight ? Color.FromRgb(30, 48, 36) : Color.FromRgb(241, 244, 232);
+        var textSecondary = isLight ? Color.FromRgb(73, 94, 77) : Color.FromRgb(193, 202, 187);
+        var textMuted = isLight ? Color.FromRgb(104, 125, 108) : Color.FromRgb(145, 160, 145);
+        var accent = isLight ? Color.FromRgb(42, 115, 72) : Color.FromRgb(185, 233, 87);
+        var accentSoft = isLight ? Color.FromRgb(177, 214, 179) : Color.FromRgb(89, 111, 56);
+        var accentIndigo = isLight ? Color.FromRgb(53, 101, 184) : Color.FromRgb(128, 170, 255);
+        var accentRecording = isLight ? Color.FromRgb(196, 68, 58) : Color.FromRgb(255, 116, 100);
+        var accentSuccess = isLight ? Color.FromRgb(34, 122, 73) : Color.FromRgb(120, 217, 157);
+        var accentWarning = isLight ? Color.FromRgb(159, 98, 15) : Color.FromRgb(240, 190, 89);
+        var onAccent = isLight ? Color.FromRgb(255, 255, 255) : Color.FromRgb(24, 33, 15);
+        var islandBg = isLight ? Color.FromRgb(249, 251, 246) : Color.FromRgb(16, 16, 18);
+        var islandBorder = isLight ? Color.FromRgb(184, 203, 181) : Color.FromRgb(43, 43, 47);
+        var islandInk = isLight ? Color.FromRgb(30, 48, 36) : Color.FromRgb(242, 242, 244);
+        var islandText = isLight ? Color.FromRgb(30, 48, 36) : Color.FromRgb(237, 237, 238);
+        var islandPending = isLight ? Color.FromRgb(100, 122, 105) : Color.FromRgb(140, 140, 144);
 
         // Update application level
         SetResource(app.Resources, "BrushBgMain", new SolidColorBrush(bgMain));
@@ -71,12 +144,18 @@ public static class ThemeManager
         SetResource(app.Resources, "BrushTextMuted", new SolidColorBrush(textMuted));
         SetResource(app.Resources, "BrushAccentPurple", new SolidColorBrush(accent));
         SetResource(app.Resources, "BrushAccentPurpleDark", new SolidColorBrush(accentSoft));
-        SetResource(app.Resources, "BrushAccentRecording", new SolidColorBrush(accent));
-        SetResource(app.Resources, "BrushAccentSuccess", new SolidColorBrush(accent));
-        SetResource(app.Resources, "BrushAccentWarning", new SolidColorBrush(accentSoft));
+        SetResource(app.Resources, "BrushAccentIndigo", new SolidColorBrush(accentIndigo));
+        SetResource(app.Resources, "BrushAccentRecording", new SolidColorBrush(accentRecording));
+        SetResource(app.Resources, "BrushAccentSuccess", new SolidColorBrush(accentSuccess));
+        SetResource(app.Resources, "BrushAccentWarning", new SolidColorBrush(accentWarning));
         SetResource(app.Resources, "BrushOnAccent", new SolidColorBrush(onAccent));
+        SetResource(app.Resources, "BrushIslandBg", new SolidColorBrush(islandBg));
+        SetResource(app.Resources, "BrushIslandBorder", new SolidColorBrush(islandBorder));
+        SetResource(app.Resources, "BrushIslandInk", new SolidColorBrush(islandInk));
+        SetResource(app.Resources, "BrushIslandText", new SolidColorBrush(islandText));
+        SetResource(app.Resources, "BrushIslandPending", new SolidColorBrush(islandPending));
         SetResource(app.Resources, "BrushWisprGradient", new SolidColorBrush(accent));
-        SetResource(app.Resources, "BrushFlowPillBg", new SolidColorBrush(isLight ? Color.FromRgb(255, 255, 255) : Color.FromRgb(21, 21, 21)));
+        SetResource(app.Resources, "BrushFlowPillBg", new SolidColorBrush(bgCard));
 
         // Also update each open window's resources in case of local overrides
         foreach (Window win in app.Windows)
@@ -93,12 +172,18 @@ public static class ThemeManager
             SetResource(win.Resources, "BrushTextMuted", new SolidColorBrush(textMuted));
             SetResource(win.Resources, "BrushAccentPurple", new SolidColorBrush(accent));
             SetResource(win.Resources, "BrushAccentPurpleDark", new SolidColorBrush(accentSoft));
-            SetResource(win.Resources, "BrushAccentRecording", new SolidColorBrush(accent));
-            SetResource(win.Resources, "BrushAccentSuccess", new SolidColorBrush(accent));
-            SetResource(win.Resources, "BrushAccentWarning", new SolidColorBrush(accentSoft));
+            SetResource(win.Resources, "BrushAccentIndigo", new SolidColorBrush(accentIndigo));
+            SetResource(win.Resources, "BrushAccentRecording", new SolidColorBrush(accentRecording));
+            SetResource(win.Resources, "BrushAccentSuccess", new SolidColorBrush(accentSuccess));
+            SetResource(win.Resources, "BrushAccentWarning", new SolidColorBrush(accentWarning));
             SetResource(win.Resources, "BrushOnAccent", new SolidColorBrush(onAccent));
+            SetResource(win.Resources, "BrushIslandBg", new SolidColorBrush(islandBg));
+            SetResource(win.Resources, "BrushIslandBorder", new SolidColorBrush(islandBorder));
+            SetResource(win.Resources, "BrushIslandInk", new SolidColorBrush(islandInk));
+            SetResource(win.Resources, "BrushIslandText", new SolidColorBrush(islandText));
+            SetResource(win.Resources, "BrushIslandPending", new SolidColorBrush(islandPending));
             SetResource(win.Resources, "BrushWisprGradient", new SolidColorBrush(accent));
-            SetResource(win.Resources, "BrushFlowPillBg", new SolidColorBrush(isLight ? Color.FromRgb(255, 255, 255) : Color.FromRgb(21, 21, 21)));
+            SetResource(win.Resources, "BrushFlowPillBg", new SolidColorBrush(bgCard));
         }
     }
 

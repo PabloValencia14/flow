@@ -35,6 +35,154 @@ public static partial class DictationTextProcessor
     private static readonly Regex CodeFence = new(
         @"```(?:text|plaintext)?",
         RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    private static readonly Regex BracketedStageNote = new(
+        @"^\s*(?:\[[^\]]+\]|\([^)]+\)|\*[^*]+\*|♪[^♪]*♪|[.…,;:!?¡¿\-—\s]+)\s*$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly Regex EmbeddedAsrArtifact = new(
+        @"(?im)(?:^|(?<=[\s.!?]))(?:dictado breve en español de españa\.?|transcribe literalmente las palabras pronunciadas\.?|gracias por ver (?:el|este|mi) v[íi]deo\.?|subt[íi]tulos (?:realizados )?por[^.\n]*\.?)\s*$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+    private static readonly HashSet<string> AlwaysHallucinatedKeys = new(StringComparer.Ordinal)
+    {
+        "transcribe literalmente las palabras pronunciadas",
+        "dictado breve en espanol de espana",
+        "dictado breve en espanol de espana transcribe literalmente las palabras pronunciadas",
+        "gracias por ver el video",
+        "gracias por ver este video",
+        "gracias por ver mi video",
+        "gracias por ver el proximo video",
+        "gracias por vernos",
+        "gracias por mirar",
+        "gracias por ver",
+        "suscribete al canal",
+        "suscribete",
+        "no olvides suscribirte",
+        "dale a like",
+        "dale like y suscribete",
+        "dale me gusta y suscribete",
+        "fin de la transcripcion",
+        "amara org",
+        "subtitulos realizados por la comunidad de amara org",
+        "thank you for watching",
+        "thanks for watching",
+        "please subscribe"
+    };
+    private static readonly string[] HallucinatedPrefixes =
+    [
+        "subtitulos realizados por",
+        "subtitulos por",
+        "subtitulado por",
+        "traducido por",
+        "subtitles by",
+        "subtitled by"
+    ];
+    private static readonly HashSet<string> SilenceProneClosingKeys = new(StringComparer.Ordinal)
+    {
+        "gracias",
+        "muchas gracias",
+        "de nada",
+        "hasta la proxima",
+        "nos vemos en el proximo video",
+        "thank you",
+        "thanks"
+    };
+
+    /// <summary>
+    /// Filters Whisper prompt-leakage, silence hallucinations, and low-confidence
+    /// non-speech segments before they enter preview text or final dictation.
+    /// </summary>
+    public static string CleanAsrSegmentText(
+        string? rawText,
+        double? noSpeechProbability = null,
+        double? avgLogProb = null,
+        double? compressionRatio = null,
+        double? tokenProbability = null)
+    {
+        if (string.IsNullOrWhiteSpace(rawText)) return string.Empty;
+        var trimmed = rawText.Trim();
+        if (BracketedStageNote.IsMatch(trimmed)) return string.Empty;
+
+        if (noSpeechProbability >= 0.60) return string.Empty;
+        if (noSpeechProbability >= 0.40 && avgLogProb < -0.80) return string.Empty;
+        if (avgLogProb < -1.25) return string.Empty;
+        if (compressionRatio >= 2.40) return string.Empty;
+
+        var stripped = StripTrailingAsrArtifacts(trimmed);
+        if (string.IsNullOrWhiteSpace(stripped)) return string.Empty;
+
+        var key = NormalizeHallucinationKey(stripped);
+        if (string.IsNullOrEmpty(key)) return string.Empty;
+        if (AlwaysHallucinatedKeys.Contains(key)) return string.Empty;
+        if (HallucinatedPrefixes.Any(prefix => key.StartsWith(prefix, StringComparison.Ordinal)))
+            return string.Empty;
+
+        if (SilenceProneClosingKeys.Contains(key))
+        {
+            if (noSpeechProbability >= 0.20 ||
+                avgLogProb < -0.45 ||
+                (tokenProbability is > 0d and < 0.60))
+            {
+                return string.Empty;
+            }
+        }
+
+        return stripped;
+    }
+
+    public static bool NeedsAudioEnergyConfirmation(
+        string? text,
+        double? noSpeechProbability = null,
+        double? avgLogProb = null)
+    {
+        if (noSpeechProbability >= 0.25 || avgLogProb < -0.55)
+            return true;
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var key = NormalizeHallucinationKey(text);
+        return SilenceProneClosingKeys.Contains(key);
+    }
+
+    public static string RemoveAsrArtifacts(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+        return CleanAsrSegmentText(text);
+    }
+
+    private static string StripTrailingAsrArtifacts(string text)
+    {
+        var current = text.Trim();
+        for (var pass = 0; pass < 3; pass++)
+        {
+            var next = EmbeddedAsrArtifact.Replace(current, string.Empty).Trim();
+            if (string.Equals(next, current, StringComparison.Ordinal)) break;
+            current = next;
+        }
+        return current;
+    }
+
+    private static string NormalizeHallucinationKey(string text)
+    {
+        var decomposed = text.Normalize(System.Text.NormalizationForm.FormKD);
+        var builder = new System.Text.StringBuilder(decomposed.Length);
+        var pendingSpace = false;
+        foreach (var ch in decomposed)
+        {
+            var category = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (category == System.Globalization.UnicodeCategory.NonSpacingMark)
+                continue;
+            if (char.IsLetterOrDigit(ch))
+            {
+                if (pendingSpace && builder.Length > 0) builder.Append(' ');
+                builder.Append(char.ToLowerInvariant(ch));
+                pendingSpace = false;
+            }
+            else if (builder.Length > 0)
+            {
+                pendingSpace = true;
+            }
+        }
+        return builder.ToString();
+    }
 
     /// <summary>
     /// Makes the ASR output unambiguous before sending it to the contextual

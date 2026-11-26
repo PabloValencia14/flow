@@ -22,7 +22,9 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _foregroundTimer;
     private readonly RecordingIndicatorWindow _flowBar;
     private readonly System.Windows.Forms.NotifyIcon _trayIcon;
+    private readonly Action<AppTheme, bool> _themeChangedHandler;
     private readonly bool _startInBackground;
+    private HwndSource? _hwndSource;
     private nint _lastExternalWindow;
     private string? _lastExternalAppName;
     private string _currentNoteFilter = "all";
@@ -30,6 +32,7 @@ public partial class MainWindow : Window
     private bool _loadingTheme = true;
     private bool _loadingMicrophone = true;
     private bool _loadingSounds = true;
+    private bool _loadingLocalEngineSettings = true;
     // XAML can raise Checked/Unchecked while InitializeComponent is still
     // wiring named controls. Ignore those early events until Loaded.
     private bool _loadingCorrectionOptions = true;
@@ -50,16 +53,12 @@ public partial class MainWindow : Window
             a.Equals("--background", StringComparison.OrdinalIgnoreCase) ||
             a.Equals("-b", StringComparison.OrdinalIgnoreCase));
         ShowInTaskbar = !_startInBackground;
-        if (_startInBackground)
-        {
-            // Hide before the asynchronous Loaded work starts so startup never
-            // flashes the full panel when launched by Windows.
-            SourceInitialized += (_, _) => HideToTray();
-        }
+        SourceInitialized += OnMainWindowSourceInitialized;
         _trayIcon = CreateTrayIcon();
 
         // Connect audio levels to floating Dynamic Island recorder graph
         _client.AudioLevelChanged += level => _flowBar.SetAudioLevel(level);
+        _client.TranscriptPreviewChanged += text => Dispatcher.BeginInvoke(() => _flowBar.SetTranscriptPreview(text));
 
         // Connect shortcut hook events (Push-to-Talk and Double-Tap with Ctrl + Win)
         _shortcut.StartRecording += () =>
@@ -96,10 +95,12 @@ public partial class MainWindow : Window
             _shortcut.NotifyExternalStop();
         };
 
-        ThemeManager.ThemeChanged += (mode, isLight) =>
+        _themeChangedHandler = (mode, isLight) =>
         {
-            Dispatcher.Invoke(async () =>
+            if (_isClosingFromApp) return;
+            Dispatcher.BeginInvoke(async () =>
             {
+                if (_isClosingFromApp) return;
                 UpdateThemeRadios(mode);
                 UpdateThemeIcon(isLight);
                 await LoadNotesAsync();
@@ -108,10 +109,12 @@ public partial class MainWindow : Window
                 await LoadMeetingsAsync();
             });
         };
+        ThemeManager.ThemeChanged += _themeChangedHandler;
 
         _syncTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
         _syncTimer.Tick += async (_, _) =>
         {
+            ThemeManager.SyncSystemThemeIfNeeded();
             var sync = await _client.SyncPendingAsync();
             if (sync.Pulled > 0)
             {
@@ -160,6 +163,8 @@ public partial class MainWindow : Window
 
             await LoadCorrectionOptionsAsync();
             await LoadStyleSettingsAsync();
+            await LoadLocalEngineSettingsAsync();
+            _ = EnsureOllamaOnStartupAsync();
 
             ServerUrlInput.Text = await _client.GetSyncServerUrlAsync() ?? string.Empty;
             ServerTokenInput.Text = _client.HasFlowHubToken ? "●●●●●●●●" : string.Empty;
@@ -192,6 +197,9 @@ public partial class MainWindow : Window
         Closed += async (_, _) =>
         {
             _isClosingFromApp = true;
+            ThemeManager.ThemeChanged -= _themeChangedHandler;
+            ThemeManager.StopSystemThemeTracking();
+            _hwndSource?.RemoveHook(MainWindowProc);
             _trayIcon.Visible = false;
             _trayIcon.Dispose();
             _syncTimer.Stop();
@@ -199,6 +207,7 @@ public partial class MainWindow : Window
             _shortcut.Dispose();
             StopMeetingPlayback();
             _flowBar.Close();
+            LocalOllamaCorrector.StopManagedServer();
             await _client.DisposeAsync();
         };
 
@@ -207,6 +216,36 @@ public partial class MainWindow : Window
     }
 
     #region Window Chrome & Navigation
+    private void OnMainWindowSourceInitialized(object? sender, EventArgs e)
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        _hwndSource = HwndSource.FromHwnd(handle);
+        _hwndSource?.AddHook(MainWindowProc);
+        if (_startInBackground) HideToTray();
+    }
+
+    private nint MainWindowProc(nint hwnd, int message, nint wParam, nint lParam, ref bool handled)
+    {
+        const int wmSettingChange = 0x001A;
+        const int wmThemeChanged = 0x031A;
+        if (message == wmThemeChanged)
+        {
+            ThemeManager.SyncSystemThemeIfNeeded();
+        }
+        else if (message == wmSettingChange)
+        {
+            var setting = lParam == nint.Zero ? null : Marshal.PtrToStringUni(lParam);
+            if (setting is null ||
+                string.Equals(setting, "ImmersiveColorSet", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(setting, "WindowsThemeElement", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(setting, "UserPreference", StringComparison.OrdinalIgnoreCase))
+            {
+                ThemeManager.SyncSystemThemeIfNeeded();
+            }
+        }
+        return nint.Zero;
+    }
+
     private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton == MouseButton.Left) DragMove();
@@ -326,6 +365,7 @@ public partial class MainWindow : Window
             return;
         }
 
+        ThemeManager.SyncSystemThemeIfNeeded();
         ShowInTaskbar = true;
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
         Show();
@@ -583,10 +623,11 @@ public partial class MainWindow : Window
         if (_client.IsRecording) return;
         try
         {
+            ThemeManager.SyncSystemThemeIfNeeded();
             _client.SetPasteTarget(_lastExternalWindow, _lastExternalAppName);
             await _client.StartDictationAsync();
             if (!fromShortcut) _shortcut.NotifyExternalStart();
-            _flowBar.ShowRecording();
+            _flowBar.ShowRecording(showTranscriptPreview: true, _client.ActiveTranscriptPreviewMode != "block");
         }
         catch (Exception error)
         {
@@ -604,7 +645,7 @@ public partial class MainWindow : Window
         }
         try
         {
-            _flowBar.ShowProcessing();
+            _flowBar.ShowProcessing(_client.UsesLocalTranscription);
             var result = await _client.FinishDictationAsync();
             if (!string.IsNullOrEmpty(result))
             {
@@ -647,10 +688,11 @@ public partial class MainWindow : Window
         {
             var emptyText = new TextBlock
             {
-                Text = string.IsNullOrEmpty(search) ? "No hay notas o dictados guardados todavía. ¡Empieza a hablar con Ctrl + Win!" : "No se encontraron notas para esta búsqueda.",
+                Text = string.IsNullOrEmpty(search) ? "No hay dictados guardados. Usa Dictar o Ctrl + Win para crear uno." : "No se encontraron notas para esta búsqueda.",
                 FontSize = 13,
                 Margin = new Thickness(0, 40, 0, 0),
-                HorizontalAlignment = HorizontalAlignment.Center
+                HorizontalAlignment = HorizontalAlignment.Left,
+                TextWrapping = TextWrapping.Wrap
             };
             emptyText.SetResourceReference(TextBlock.ForegroundProperty, "BrushTextMuted");
             NotesContainer.Children.Add(emptyText);
@@ -669,8 +711,11 @@ public partial class MainWindow : Window
         var border = new Border
         {
             Style = (Style)FindResource("WisprCard"),
-            Margin = new Thickness(0, 0, 0, 10),
-            Padding = new Thickness(14)
+            Background = System.Windows.Media.Brushes.Transparent,
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            CornerRadius = new CornerRadius(0),
+            Margin = new Thickness(0),
+            Padding = new Thickness(0, 14, 0, 14)
         };
 
         var grid = new Grid();
@@ -935,7 +980,8 @@ public partial class MainWindow : Window
                 Text = "No hay términos en el diccionario personal todavía.",
                 FontSize = 13,
                 Margin = new Thickness(0, 24, 0, 0),
-                HorizontalAlignment = HorizontalAlignment.Center
+                HorizontalAlignment = HorizontalAlignment.Left,
+                TextWrapping = TextWrapping.Wrap
             };
             emptyText.SetResourceReference(TextBlock.ForegroundProperty, "BrushTextMuted");
             DictionaryContainer.Children.Add(emptyText);
@@ -1010,6 +1056,230 @@ public partial class MainWindow : Window
     #endregion
 
     #region Settings Logic
+    private async Task LoadLocalEngineSettingsAsync()
+    {
+        _loadingLocalEngineSettings = true;
+        try
+        {
+            SetComboBoxTag(TranscriptionProviderComboBox,
+                await _client.Outbox.GetSettingAsync(FlowSettingKeys.TranscriptionProvider, "groq") ?? "groq");
+            SetComboBoxTag(CorrectionProviderComboBox,
+                await _client.Outbox.GetSettingAsync(FlowSettingKeys.CorrectionProvider, "groq") ?? "groq");
+            SetComboBoxTag(TranscriptPreviewModeComboBox,
+                await _client.Outbox.GetSettingAsync(FlowSettingKeys.TranscriptPreviewMode, "word") ?? "word");
+            SetComboBoxTag(WhisperModelComboBox,
+                await _client.Outbox.GetSettingAsync(FlowSettingKeys.TranscriptionModel, LocalWhisperTranscriber.DefaultModel) ?? LocalWhisperTranscriber.DefaultModel);
+            OllamaModelInput.Text = await _client.Outbox.GetSettingAsync(FlowSettingKeys.OllamaModel, LocalOllamaCorrector.DefaultModel)
+                ?? LocalOllamaCorrector.DefaultModel;
+        }
+        finally
+        {
+            _loadingLocalEngineSettings = false;
+            RefreshWhisperModelStatus();
+            RefreshTranscriptPreviewHint();
+        }
+    }
+
+    private async void LocalEngineSelection_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingLocalEngineSettings || _client?.Outbox == null) return;
+        try
+        {
+            if (ReferenceEquals(sender, TranscriptionProviderComboBox))
+            {
+                var provider = GetComboBoxTag(TranscriptionProviderComboBox);
+                if (provider is not null) await _client.Outbox.SetSettingAsync(FlowSettingKeys.TranscriptionProvider, provider);
+                RefreshTranscriptPreviewHint();
+                if (provider == "whisper")
+                {
+                    _ = LocalOllamaCorrector.EnsureServerRunningAsync();
+                    var whisperModel = GetComboBoxTag(WhisperModelComboBox) ?? LocalWhisperTranscriber.DefaultModel;
+                    _ = _client.PrewarmLocalWhisperAsync(whisperModel);
+                }
+                UpdateStatus(provider == "whisper" ? "Whisper local seleccionado para los nuevos dictados." : "Groq seleccionado para los nuevos dictados.");
+            }
+            else if (ReferenceEquals(sender, CorrectionProviderComboBox))
+            {
+                var provider = GetComboBoxTag(CorrectionProviderComboBox);
+                if (provider is not null) await _client.Outbox.SetSettingAsync(FlowSettingKeys.CorrectionProvider, provider);
+                if (provider == "ollama") _ = LocalOllamaCorrector.EnsureServerRunningAsync();
+                UpdateStatus(provider == "ollama" ? "Ollama local seleccionado para la corrección." : "Groq seleccionado para la corrección.");
+            }
+            else if (ReferenceEquals(sender, TranscriptPreviewModeComboBox))
+            {
+                var mode = GetComboBoxTag(TranscriptPreviewModeComboBox);
+                if (mode is not null) await _client.Outbox.SetSettingAsync(FlowSettingKeys.TranscriptPreviewMode, mode);
+                RefreshTranscriptPreviewHint();
+                UpdateStatus(mode == "block" ? "Vista previa configurada en bloque." : "Vista previa configurada palabra por palabra.");
+            }
+            else if (ReferenceEquals(sender, WhisperModelComboBox))
+            {
+                var model = GetComboBoxTag(WhisperModelComboBox);
+                if (model is not null) await _client.Outbox.SetSettingAsync(FlowSettingKeys.TranscriptionModel, model);
+                RefreshWhisperModelStatus();
+            }
+        }
+        catch (Exception error) { UpdateStatus($"No se pudo guardar la opción local: {error.Message}"); }
+    }
+
+    private async void DownloadWhisperModel_Click(object sender, RoutedEventArgs e)
+    {
+        var model = GetComboBoxTag(WhisperModelComboBox) ?? LocalWhisperTranscriber.DefaultModel;
+        DownloadWhisperModelButton.IsEnabled = false;
+        WhisperModelStatus.Text = $"Descargando Whisper {model}…";
+        try
+        {
+            await LocalWhisperTranscriber.DownloadModelAsync(model);
+            RefreshWhisperModelStatus();
+            UpdateStatus($"Modelo Whisper {model} descargado en este equipo.");
+        }
+        catch (Exception error)
+        {
+            WhisperModelStatus.Text = "No se pudo descargar el modelo.";
+            UpdateStatus($"Error al descargar Whisper: {error.Message}");
+        }
+        finally { DownloadWhisperModelButton.IsEnabled = true; }
+    }
+
+    private async void SaveOllamaModel_Click(object sender, RoutedEventArgs e)
+    {
+        var model = OllamaModelInput.Text.Trim();
+        if (!IsValidOllamaModelName(model))
+        {
+            UpdateStatus("Nombre de modelo Ollama no válido.");
+            return;
+        }
+        try
+        {
+            OllamaModelInput.Text = model;
+            await _client.Outbox.SetSettingAsync(FlowSettingKeys.OllamaModel, model);
+            OllamaModelStatus.Text = $"Modelo seleccionado: {model}.";
+            UpdateStatus("Modelo Ollama guardado en este equipo.");
+        }
+        catch (Exception error) { UpdateStatus($"No se pudo guardar el modelo Ollama: {error.Message}"); }
+    }
+
+    private async void DownloadOllamaModel_Click(object sender, RoutedEventArgs e)
+    {
+        var model = OllamaModelInput.Text.Trim();
+        if (!IsValidOllamaModelName(model))
+        {
+            UpdateStatus("Nombre de modelo Ollama no válido.");
+            return;
+        }
+
+        DownloadOllamaModelButton.IsEnabled = false;
+        try
+        {
+            await _client.Outbox.SetSettingAsync(FlowSettingKeys.OllamaModel, model);
+            OllamaModelStatus.Text = "Iniciando servidor local de Ollama…";
+            await LocalOllamaCorrector.EnsureServerRunningAsync();
+            OllamaModelStatus.Text = $"Descargando {model} desde Ollama…";
+            var progress = new Progress<(long Completed, long Total)>(value =>
+            {
+                var percent = (int)Math.Clamp(value.Completed * 100d / value.Total, 0, 100);
+                OllamaModelStatus.Text = $"Descargando {model}: {percent}%";
+            });
+            using var corrector = new LocalOllamaCorrector();
+            await corrector.PullModelAsync(model, progress);
+            OllamaModelStatus.Text = $"{model} disponible en Ollama.";
+            UpdateStatus($"Modelo Ollama {model} descargado.");
+        }
+        catch (Exception error)
+        {
+            OllamaModelStatus.Text = error.Message;
+            UpdateStatus($"Error al descargar desde Ollama: {error.Message}");
+        }
+        finally { DownloadOllamaModelButton.IsEnabled = true; }
+    }
+
+    private async void CheckOllama_Click(object sender, RoutedEventArgs e)
+    {
+        OllamaModelStatus.Text = "Comprobando Ollama local…";
+        try
+        {
+            await LocalOllamaCorrector.EnsureServerRunningAsync();
+            using var corrector = new LocalOllamaCorrector();
+            var models = await corrector.GetInstalledModelsAsync();
+            var selected = OllamaModelInput.Text.Trim();
+            var installed = models.Any(model => string.Equals(model, selected, StringComparison.OrdinalIgnoreCase) ||
+                                                model.StartsWith(selected + ":", StringComparison.OrdinalIgnoreCase));
+            OllamaModelStatus.Text = models.Count == 0
+                ? "Ollama en marcha, pero no hay modelos descargados."
+                : installed
+                    ? $"Ollama disponible · {selected} instalado."
+                    : $"Ollama disponible · {models.Count} modelo(s); {selected} no está instalado.";
+        }
+        catch (Exception error)
+        {
+            OllamaModelStatus.Text = LocalOllamaCorrector.IsExecutableInstalled()
+                ? "Ollama está instalado, pero no responde en 127.0.0.1:11434. Arráncalo o ejecuta 'ollama serve'."
+                : "Ollama no responde en este equipo.";
+            UpdateStatus($"No se pudo conectar con Ollama: {error.Message}");
+        }
+    }
+
+    private async Task EnsureOllamaOnStartupAsync()
+    {
+        try
+        {
+            var transcription = await _client.Outbox.GetSettingAsync(FlowSettingKeys.TranscriptionProvider, "groq");
+            var correction = await _client.Outbox.GetSettingAsync(FlowSettingKeys.CorrectionProvider, "groq");
+            var whisperModel = await _client.Outbox.GetSettingAsync(FlowSettingKeys.TranscriptionModel, LocalWhisperTranscriber.DefaultModel)
+                ?? LocalWhisperTranscriber.DefaultModel;
+            if (string.Equals(transcription, "whisper", StringComparison.OrdinalIgnoreCase))
+                _ = _client.PrewarmLocalWhisperAsync(whisperModel);
+            if (string.Equals(transcription, "whisper", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(correction, "ollama", StringComparison.OrdinalIgnoreCase))
+            {
+                await LocalOllamaCorrector.EnsureServerRunningAsync();
+            }
+        }
+        catch { }
+    }
+
+    private void OpenOllamaDownload_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("https://ollama.com/download/windows") { UseShellExecute = true });
+        }
+        catch (Exception error) { UpdateStatus($"No se pudo abrir la página de Ollama: {error.Message}"); }
+    }
+
+    private void RefreshTranscriptPreviewHint()
+    {
+        if (TranscriptPreviewModeHint is null) return;
+        var provider = GetComboBoxTag(TranscriptionProviderComboBox);
+        var mode = GetComboBoxTag(TranscriptPreviewModeComboBox);
+        var engineLabel = provider == "whisper" ? "Whisper local" : "Groq (nube)";
+        TranscriptPreviewModeHint.Text = mode == "block"
+            ? $"En bloque: muestra frases completas por fragmentos con {engineLabel}."
+            : $"Palabra por palabra: muestra el texto progresivamente mientras hablas con {engineLabel}.";
+    }
+
+    private void RefreshWhisperModelStatus()
+    {
+        if (WhisperModelStatus is null) return;
+        var model = GetComboBoxTag(WhisperModelComboBox) ?? LocalWhisperTranscriber.DefaultModel;
+        WhisperModelStatus.Text = LocalWhisperTranscriber.IsModelInstalled(model)
+            ? $"Whisper {model} instalado en este equipo."
+            : $"Whisper {model} sin descargar.";
+    }
+
+    private static string? GetComboBoxTag(ComboBox comboBox) =>
+        (comboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+
+    private static void SetComboBoxTag(ComboBox comboBox, string value)
+    {
+        comboBox.SelectedItem = comboBox.Items.OfType<ComboBoxItem>()
+            .FirstOrDefault(item => string.Equals(item.Tag?.ToString(), value, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsValidOllamaModelName(string model) =>
+        !string.IsNullOrWhiteSpace(model) && model.Length <= 120 &&
+        model.All(character => char.IsAsciiLetterOrDigit(character) || character is ':' or '-' or '_' or '.' or '/');
+
     private void PopulateMicrophones(string? savedDeviceId)
     {
         _loadingMicrophone = true;
@@ -1156,7 +1426,7 @@ public partial class MainWindow : Window
             if (InsightsWordsToday != null) InsightsWordsToday.Text = stats.WordsToday.ToString();
             if (InsightsAvgWpm != null) InsightsAvgWpm.Text = $"{stats.AverageWpm} WPM";
             if (InsightsTimeSaved != null) InsightsTimeSaved.Text = $"{stats.MinutesSaved:0.0} min";
-            if (InsightsStreak != null) InsightsStreak.Text = $"{stats.DayStreak} día";
+            if (InsightsStreak != null) InsightsStreak.Text = $"{stats.DayStreak} {(stats.DayStreak == 1 ? "día" : "días")}";
         }
         catch { }
     }
@@ -1165,13 +1435,13 @@ public partial class MainWindow : Window
     {
         if (Dispatcher.CheckAccess())
         {
-            HubStatusLabel.Text = message.Length > 24 ? message[..24] + "…" : message;
+            HubStatusLabel.Text = message;
         }
         else
         {
             Dispatcher.Invoke(() =>
             {
-                HubStatusLabel.Text = message.Length > 24 ? message[..24] + "…" : message;
+                HubStatusLabel.Text = message;
             });
         }
     }
