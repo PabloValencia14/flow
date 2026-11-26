@@ -136,10 +136,19 @@ try
 
     var speechThenSilenceWav = BuildTestWave(4_000, (idx, ms) => ms is >= 300 and <= 1_100 ? (short)(Math.Sin(idx * 0.09) * 3_200) : (short)0);
     Check(AudioCapture.HasSpeechEnergy(speechThenSilenceWav), "La puerta de energía detecta habla sostenida normal");
+    var continuousSoftWav = BuildTestWave(2_500, (idx, ms) =>
+    {
+        var envelope = 0.45 + 0.55 * Math.Abs(Math.Sin(ms * Math.PI / 240d));
+        return (short)(Math.Sin(idx * 0.11) * 420d * envelope);
+    });
+    Check(AudioCapture.HasSpeechEnergy(continuousSoftWav), "La puerta de energía detecta habla continua suave (sin silencios largos)");
     Check(AudioCapture.HasSpeechEnergyInRange(speechThenSilenceWav, TimeSpan.FromMilliseconds(300), TimeSpan.FromMilliseconds(1_100)),
         "La comprobación por rango conserva el tramo con voz");
     Check(!AudioCapture.HasSpeechEnergyInRange(speechThenSilenceWav, TimeSpan.FromMilliseconds(1_600), TimeSpan.FromMilliseconds(3_900)),
         "La comprobación por rango detecta silencio en la cola sin voz");
+    Check(!DictationTextProcessor.NeedsAudioEnergyConfirmation("Para el metraje de las elecciones", 0.05, -0.20) &&
+          DictationTextProcessor.NeedsAudioEnergyConfirmation("Gracias.", 0.05, -0.20),
+        "Solo los cierres propensos a alucinación o segmentos de baja confianza requieren confirmación acústica por tramo");
 
     Check(DictationTextProcessor.CleanAsrSegmentText("Transcribe literalmente las palabras pronunciadas.") == string.Empty,
         "El filtro ASR elimina el eco del antiguo prompt");

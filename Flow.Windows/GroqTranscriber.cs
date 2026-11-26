@@ -82,12 +82,6 @@ public sealed class GroqTranscriber(HttpClient http)
                 var start = TimeSpan.FromSeconds(Math.Max(0d, startSeconds));
                 var end = TimeSpan.FromSeconds(Math.Max(startSeconds, endSeconds));
 
-                if (AudioCapture.TryHasSpeechEnergyInRange(audio, start, end, out var hasSpeechInSegment) &&
-                    !hasSpeechInSegment)
-                {
-                    continue;
-                }
-
                 double? noSpeechProb = item.TryGetProperty("no_speech_prob", out var noSpeechProp) ? noSpeechProp.GetDouble() : null;
                 double? avgLogProb = item.TryGetProperty("avg_logprob", out var logProbProp) ? logProbProp.GetDouble() : null;
                 double? compressionRatio = item.TryGetProperty("compression_ratio", out var compressionProp) ? compressionProp.GetDouble() : null;
@@ -99,6 +93,13 @@ public sealed class GroqTranscriber(HttpClient http)
                     avgLogProb,
                     compressionRatio);
                 if (string.IsNullOrWhiteSpace(cleanSegment)) continue;
+
+                if (DictationTextProcessor.NeedsAudioEnergyConfirmation(cleanSegment, noSpeechProb, avgLogProb) &&
+                    AudioCapture.TryHasSpeechEnergyInRange(audio, start, end, out var hasSpeechInSegment) &&
+                    !hasSpeechInSegment)
+                {
+                    continue;
+                }
 
                 segments.Add(new MeetingGroqSegment(
                     segments.Count.ToString(),

@@ -291,15 +291,13 @@ public sealed class AudioCapture : IDisposable
             windowPeak[windowIndex] = maxSample;
         }
 
-        // Estimate background noise floor from the full clip so stationary fans/HVAC
-        // do not look like voice inside isolated silent segments.
+        // Only treat flat, low-level constant energy as stationary room/fan noise;
+        // never let speech itself raise the threshold on continuous dictations.
         var sortedRms = (double[])windowRms.Clone();
         Array.Sort(sortedRms);
-        var noiseFloor = sortedRms[Math.Min(sortedRms.Length - 1, Math.Max(0, (int)Math.Floor(sortedRms.Length * 0.15)))];
-        var rmsThreshold = noiseFloor < 0.020
-            ? Math.Max(0.0065, noiseFloor * 1.45)
-            : 0.0065;
-        const double peakThreshold = 0.018;
+        var baselineRms = sortedRms[Math.Min(sortedRms.Length - 1, Math.Max(0, (int)Math.Floor(sortedRms.Length * 0.10)))];
+        const double rmsThreshold = 0.0022;
+        const double peakThreshold = 0.0085;
 
         var startWindow = 0;
         var endWindow = windowCount - 1;
@@ -320,13 +318,24 @@ public sealed class AudioCapture : IDisposable
         }
 
         var activeWindows = 0;
+        double rangeMaxRms = 0;
+        double rangeMaxPeak = 0;
         for (var i = startWindow; i <= endWindow; i++)
         {
+            if (windowRms[i] > rangeMaxRms) rangeMaxRms = windowRms[i];
+            if (windowPeak[i] > rangeMaxPeak) rangeMaxPeak = windowPeak[i];
             if (windowRms[i] >= rmsThreshold && windowPeak[i] >= peakThreshold)
                 activeWindows++;
         }
 
-        hasSpeech = activeWindows >= 4;
+        if (activeWindows < 3)
+        {
+            hasSpeech = false;
+            return true;
+        }
+
+        var isStationaryFlatNoise = rangeMaxPeak < 0.022 && rangeMaxRms <= Math.Max(rmsThreshold, baselineRms * 1.30);
+        hasSpeech = !isStationaryFlatNoise;
         return true;
     }
 

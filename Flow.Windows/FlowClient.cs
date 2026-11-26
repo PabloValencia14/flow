@@ -201,20 +201,24 @@ public sealed class FlowClient : IAsyncDisposable
                 }
                 if (wav.Length < 1_100)
                 {
+                    LogDiagnostic($"finish provider=groq skipped=short_wav bytes={wav.Length}");
                     _status("No se ha capturado audio suficiente.");
                     return null;
                 }
-                if (!AudioCapture.HasSpeechEnergy(wav))
+                var previewFallback = DictationTextProcessor.RemoveAsrArtifacts(_localRawTranscript);
+                if (!AudioCapture.HasSpeechEnergy(wav) && string.IsNullOrWhiteSpace(previewFallback))
                 {
+                    LogDiagnostic($"finish provider=groq skipped=no_speech_energy bytes={wav.Length}");
                     _status("No se detectó voz en el audio.");
                     return null;
                 }
 
                 _status($"Audio capturado ({wav.Length / 1024d:0.0} KB). Transcribiendo con Groq…");
-                text = await _transcriber.TranscribeAsync(wav, CancellationToken.None);
+                text = await TranscribeGroqFinalWithRecoveryAsync(wav, previewFallback);
             }
             if (string.IsNullOrWhiteSpace(text))
             {
+                LogDiagnostic($"finish provider={_activeTranscriptionProvider} empty_transcript=true preview_len={_localRawTranscript.Length}");
                 _status(_activeTranscriptionProvider == "whisper" ? "Whisper local no devolvió texto." : "Groq no devolvió texto.");
                 return null;
             }
@@ -255,16 +259,14 @@ public sealed class FlowClient : IAsyncDisposable
             }
             if (string.IsNullOrWhiteSpace(finalText))
             {
+                LogDiagnostic($"finish provider={_activeTranscriptionProvider} empty_final_text=true");
                 _status("No se obtuvo texto utilizable del dictado.");
                 return null;
             }
 
-            await _delivery.PasteAsync(finalText, _pasteTargetWindow);
-            SoundManager.PlayPaste();
-
             var dictationId = Guid.NewGuid().ToString();
 
-            // 1. Save to local SQLite History
+            // 1. Persist locally first so history is never lost if pasting hits transient focus/clipboard lock.
             await _outbox.SaveDictationAsync(dictationId, finalText, text, durationSeconds, _lastTargetAppName);
 
             // 2. Enqueue for FlowHub sync
@@ -281,7 +283,18 @@ public sealed class FlowClient : IAsyncDisposable
                 correctionModel = correctedText is null ? null : _activeCorrectionModel
             });
 
-            _status("Texto insertado y guardado en la memoria local.");
+            try
+            {
+                await _delivery.PasteAsync(finalText, _pasteTargetWindow);
+                SoundManager.PlayPaste();
+                _status("Texto insertado y guardado en la memoria local.");
+            }
+            catch (Exception pasteError)
+            {
+                LogDiagnostic($"paste_failed id={dictationId} err={pasteError.GetType().Name}");
+                _status($"Guardado en el historial (no se pudo pegar: {pasteError.Message})");
+            }
+
             await SyncPendingAsync();
             return finalText;
         }
@@ -547,10 +560,57 @@ public sealed class FlowClient : IAsyncDisposable
         }
     }
 
+    private async Task<string> TranscribeGroqFinalWithRecoveryAsync(byte[] wav, string previewFallback)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                var transcript = await _transcriber.TranscribeAsync(wav, CancellationToken.None);
+                if (!string.IsNullOrWhiteSpace(transcript))
+                    return transcript;
+
+                if (!string.IsNullOrWhiteSpace(previewFallback))
+                {
+                    LogDiagnostic($"groq_final_empty_fallback bytes={wav.Length} preview_len={previewFallback.Length}");
+                    return previewFallback;
+                }
+                return string.Empty;
+            }
+            catch (GroqRateLimitException) when (attempt == 1)
+            {
+                LogDiagnostic("groq_final_429_retry");
+                await Task.Delay(TimeSpan.FromMilliseconds(1_500));
+            }
+            catch (Exception error) when (!string.IsNullOrWhiteSpace(previewFallback) &&
+                                          error is GroqRateLimitException or HttpRequestException or TaskCanceledException)
+            {
+                LogDiagnostic($"groq_final_error_fallback type={error.GetType().Name}");
+                return previewFallback;
+            }
+        }
+    }
+
+    private void LogDiagnostic(string entry)
+    {
+        try
+        {
+            var dir = Path.GetDirectoryName(_outbox.DatabasePath);
+            if (string.IsNullOrWhiteSpace(dir)) return;
+            Directory.CreateDirectory(dir);
+            var logPath = Path.Combine(dir, "flow-diag.log");
+            if (File.Exists(logPath) && new FileInfo(logPath).Length > 64 * 1024)
+                File.WriteAllText(logPath, string.Empty);
+            File.AppendAllText(logPath, $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss}] {entry}{Environment.NewLine}");
+        }
+        catch { }
+    }
+
     private async Task<string> TranscribeFinalLocalAsync(AudioCaptureSnapshot snapshot, CancellationToken cancellationToken)
     {
         var session = await EnsureLocalSessionAsync(cancellationToken);
-        if (session is null || snapshot.TotalLengthBytes == 0) return _localRawTranscript.Trim();
+        var previewFallback = DictationTextProcessor.RemoveAsrArtifacts(_localRawTranscript);
+        if (session is null || snapshot.TotalLengthBytes == 0) return previewFallback;
         await _localPreviewLock.WaitAsync(cancellationToken);
         try
         {
@@ -564,9 +624,13 @@ public sealed class FlowClient : IAsyncDisposable
             if (totalBytes <= sliceLimitBytes)
             {
                 var fullWav = AudioCapture.ToWhisperWave(snapshot, 0, checked((int)totalBytes));
-                if (!AudioCapture.HasSpeechEnergy(fullWav)) return string.Empty;
-                var fullText = await session.TranscribeFinalAsync(fullWav, cancellationToken);
-                return DictationTextProcessor.RemoveAsrArtifacts(fullText);
+                if (!AudioCapture.HasSpeechEnergy(fullWav) && string.IsNullOrWhiteSpace(previewFallback))
+                {
+                    LogDiagnostic($"finish provider=whisper skipped=no_speech_energy bytes={fullWav.Length}");
+                    return string.Empty;
+                }
+                var fullText = DictationTextProcessor.RemoveAsrArtifacts(await session.TranscribeFinalAsync(fullWav, cancellationToken));
+                return string.IsNullOrWhiteSpace(fullText) ? previewFallback : fullText;
             }
 
             var sliceStepBytes = (long)Math.Round(bytesPerSecond * FinalTailSliceMilliseconds / 1_000d);
@@ -592,7 +656,8 @@ public sealed class FlowClient : IAsyncDisposable
                 if (end >= totalBytes) break;
                 cursor = end;
             }
-            return DictationTextProcessor.RemoveAsrArtifacts(merged);
+            var resolved = DictationTextProcessor.RemoveAsrArtifacts(merged);
+            return string.IsNullOrWhiteSpace(resolved) ? previewFallback : resolved;
         }
         finally
         {

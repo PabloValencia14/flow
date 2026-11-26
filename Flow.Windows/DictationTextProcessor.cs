@@ -128,6 +128,20 @@ public static partial class DictationTextProcessor
         return stripped;
     }
 
+    public static bool NeedsAudioEnergyConfirmation(
+        string? text,
+        double? noSpeechProbability = null,
+        double? avgLogProb = null)
+    {
+        if (noSpeechProbability >= 0.25 || avgLogProb < -0.55)
+            return true;
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var key = NormalizeHallucinationKey(text);
+        return SilenceProneClosingKeys.Contains(key);
+    }
+
     public static string RemoveAsrArtifacts(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return string.Empty;

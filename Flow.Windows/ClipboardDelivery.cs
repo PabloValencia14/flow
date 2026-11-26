@@ -18,7 +18,7 @@ public sealed class ClipboardDelivery
                 await Task.Delay(80);
             }
             previous = Clipboard.GetDataObject();
-            Clipboard.SetText(text);
+            await SetClipboardTextWithRetryAsync(text);
             await Task.Delay(50);
             SendCtrlV();
             await Task.Delay(120);
@@ -29,6 +29,23 @@ public sealed class ClipboardDelivery
             {
                 try { Clipboard.SetDataObject(previous, true); }
                 catch (COMException) { }
+            }
+        }
+    }
+
+    private static async Task SetClipboardTextWithRetryAsync(string text)
+    {
+        const int maxAttempts = 5;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                Clipboard.SetText(text);
+                return;
+            }
+            catch (COMException) when (attempt < maxAttempts)
+            {
+                await Task.Delay(30 * attempt);
             }
         }
     }
